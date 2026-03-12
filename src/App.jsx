@@ -26,11 +26,11 @@ function App() {
   const [audioExtension, setAudioExtension] = useState('webm');
   const [videoExtension, setVideoExtension] = useState('webm');
 
-  // 火山方舟API配置
-  const [apiConfig, setApiConfig] = useState({
+  // AI API配置（统一使用OpenAI兼容模式）
+  const [aiConfig, setAiConfig] = useState({
     apiKey: '',
-    baseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
-    modelId: '',
+    baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    modelId: 'qwen-plus',
     enabled: false,
   });
 
@@ -40,9 +40,12 @@ function App() {
   const [transcriptResult, setTranscriptResult] = useState('');
   const [summaryResult, setSummaryResult] = useState('');
 
+  // 音频数据可用状态（用于触发按钮状态更新）
+  const [hasAudioData, setHasAudioData] = useState(false);
+
   useEffect(() => {
     // 加载存储的设置
-    chrome.storage.local.get(['recordingSettings', 'volcanoApiConfig'], (result) => {
+    chrome.storage.local.get(['recordingSettings', 'aiApiConfig'], (result) => {
       const defaultSettings = {
         recordAudio: true,
         recordVideo: true,
@@ -51,9 +54,9 @@ function App() {
       const savedSettings = result.recordingSettings || defaultSettings;
       setSettings(savedSettings);
 
-      // 加载 API 配置
-      if (result.volcanoApiConfig) {
-        setApiConfig(result.volcanoApiConfig);
+      // 加载 AI API 配置
+      if (result.aiApiConfig) {
+        setAiConfig(result.aiApiConfig);
       }
     });
 
@@ -133,11 +136,20 @@ function App() {
     };
   };
 
-  // 切换API启用状态
-  const toggleApiEnabled = () => {
-    const newConfig = { ...apiConfig, enabled: !apiConfig.enabled };
-    setApiConfig(newConfig);
-    chrome.storage.local.set({ volcanoApiConfig: newConfig });
+  // 更新AI API配置
+  const handleAiConfigChange = (key) => {
+    return (e) => {
+      const newConfig = { ...aiConfig, [key]: e.target.value };
+      setAiConfig(newConfig);
+      chrome.storage.local.set({ aiApiConfig: newConfig });
+    };
+  };
+
+  // 切换AI API启用状态
+  const toggleAiEnabled = () => {
+    const newConfig = { ...aiConfig, enabled: !aiConfig.enabled };
+    setAiConfig(newConfig);
+    chrome.storage.local.set({ aiApiConfig: newConfig });
   };
 
   // 格式化录制时间
@@ -220,6 +232,7 @@ function App() {
       // 清空缓冲区
       audioChunksRef.current = [];
       videoChunksRef.current = [];
+      setHasAudioData(false);
 
       // 创建音频录制器
       if (audioStreamRef.current) {
@@ -369,6 +382,11 @@ function App() {
     // 这样停止录制后，audioChunksRef.current 仍然包含数据
     // 用户可以点击音频转文字按钮进行转录
     // 如果用户再次开始录制，startRecording 函数会在开始前清空缓冲区
+
+    // 更新音频数据状态，启用音频转文字按钮
+    if (audioChunksRef.current.length > 0 && recordAudio) {
+      setHasAudioData(true);
+    }
   };
 
   // 保存 Blob 文件
@@ -403,10 +421,10 @@ function App() {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
-  // 音频转文字（火山方舟API）
+  // 音频转文字（使用阿里百炼Qwen ASR模型 - 异步任务方式）
   const transcribeAudio = async () => {
-    if (!apiConfig.enabled || !apiConfig.apiKey) {
-      alert('请先在设置中启用火山方舟API并配置API Key');
+    if (!aiConfig.enabled || !aiConfig.apiKey) {
+      alert('请先在设置中启用AI功能并配置API Key');
       return;
     }
 
@@ -419,47 +437,124 @@ function App() {
     setTranscriptResult('');
 
     try {
+      // 将音频转换为WAV格式
       const audioBlob = new Blob(audioChunksRef.current, {
-        type: audioMimeType || 'audio/webm;codecs=opus',
+        type: 'audio/webm',
       });
 
-      // 转换为 base64
-      const base64Audio = await blobToBase64(audioBlob);
+      // 步骤1：上传音频文件到百炼服务器
+      const uploadFormData = new FormData();
+      uploadFormData.append('file', audioBlob, 'audio.webm');
+      uploadFormData.append('purpose', 'file-extract');
 
-      // 调用火山方舟语音识别API
-      // 这里使用火山方舟兼容的API格式
-      const response = await fetch(`${apiConfig.baseUrl}/audio/transcriptions`, {
+      const uploadResponse = await fetch(`${aiConfig.baseUrl}/files`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${aiConfig.apiKey}`,
+        },
+        body: uploadFormData,
+      });
+
+      if (!uploadResponse.ok) {
+        const errorData = await uploadResponse.text();
+        throw new Error(`文件上传失败: ${uploadResponse.status} - ${errorData}`);
+      }
+
+      const uploadData = await uploadResponse.json();
+      const fileId = uploadData.id;
+
+      // 步骤2：创建异步转录任务
+      const taskResponse = await fetch(`${aiConfig.baseUrl}/chat/completions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiConfig.apiKey}`,
+          'Authorization': `Bearer ${aiConfig.apiKey}`,
+          'X-DashScope-Async': 'enable',
         },
         body: JSON.stringify({
-          model: apiConfig.modelId || 'speech-1',
-          file: base64Audio,
-          language: 'zh',
-          response_format: 'text',
+          model: aiConfig.modelId || 'qwen3-asr-flash-filetrans',
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: '请转录这段音频'
+                }
+              ]
+            }
+          ],
+          input: {
+            file: fileId
+          }
         }),
       });
 
-      if (!response.ok) {
-        throw new Error(`API请求失败: ${response.status}`);
+      if (!taskResponse.ok) {
+        const errorData = await taskResponse.text();
+        throw new Error(`创建任务失败: ${taskResponse.status} - ${errorData}`);
       }
 
-      const result = await response.text();
-      setTranscriptResult(result);
+      const taskData = await taskResponse.json();
+      const taskId = taskData.output?.task_id;
+
+      if (!taskId) {
+        throw new Error('未能获取任务ID');
+      }
+
+      // 步骤3：轮询查询任务结果
+      let taskResult = null;
+      let retryCount = 0;
+      const maxRetries = 60; // 最多轮询60次，每次2秒，总共2分钟
+
+      while (retryCount < maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, 2000)); // 等待2秒
+
+        const queryResponse = await fetch(`${aiConfig.baseUrl}/tasks/${taskId}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${aiConfig.apiKey}`,
+          },
+        });
+
+        if (!queryResponse.ok) {
+          const errorData = await queryResponse.text();
+          console.error(`查询任务失败: ${queryResponse.status} - ${errorData}`);
+          retryCount++;
+          continue;
+        }
+
+        const queryData = await queryResponse.json();
+        const taskStatus = queryData.output?.task_status;
+
+        if (taskStatus === 'SUCCEEDED') {
+          taskResult = queryData.output?.results?.[0]?.text || queryData.output?.text;
+          break;
+        } else if (taskStatus === 'FAILED') {
+          throw new Error(`任务执行失败: ${queryData.output?.message || '未知错误'}`);
+        }
+
+        // 任务还在进行中，继续轮询
+        retryCount++;
+      }
+
+      if (taskResult) {
+        setTranscriptResult(taskResult);
+      } else {
+        throw new Error('任务超时或未能获取识别结果');
+      }
     } catch (error) {
       console.error('转录失败:', error);
-      alert(`转录失败: ${error.message}\n\n注意：请确认火山方舟API地址和模型ID配置正确。`);
+      alert(`转录失败: ${error.message}\n\n请参考文档：https://help.aliyun.com/model-studio/developer-reference/error-code`);
     } finally {
       setTranscribing(false);
     }
   };
 
-  // 内容总结（火山方舟大模型）
+  // 内容总结（OpenAI兼容模式）
   const summarizeContent = async () => {
-    if (!apiConfig.enabled || !apiConfig.apiKey) {
-      alert('请先在设置中启用火山方舟API并配置API Key');
+    if (!aiConfig.enabled || !aiConfig.apiKey) {
+      alert('请先在设置中启用AI功能并配置API Key');
       return;
     }
 
@@ -473,15 +568,15 @@ function App() {
     setSummaryResult('');
 
     try {
-      // 调用火山方舟大模型API
-      const response = await fetch(`${apiConfig.baseUrl}/chat/completions`, {
+      // 使用OpenAI兼容模式调用大模型API
+      const response = await fetch(`${aiConfig.baseUrl}/chat/completions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiConfig.apiKey}`,
+          'Authorization': `Bearer ${aiConfig.apiKey}`,
         },
         body: JSON.stringify({
-          model: apiConfig.modelId || 'ep-20241203184342-xxxxx',
+          model: aiConfig.modelId || 'qwen-plus',
           messages: [
             {
               role: 'system',
@@ -507,7 +602,7 @@ function App() {
       setSummaryResult(summary);
     } catch (error) {
       console.error('总结失败:', error);
-      alert(`总结失败: ${error.message}\n\n注意：请确认火山方舟API地址和模型ID配置正确。`);
+      alert(`总结失败: ${error.message}\n\n请参考文档：https://help.aliyun.com/model-studio/developer-reference/error-code`);
     } finally {
       setSummarizing(false);
     }
@@ -592,29 +687,29 @@ function App() {
         {recordingTime > 0 && isRecording && `录制时间: ${formatTime(recordingTime)}`}
       </div>
 
-      {/* 火山方舟API配置 */}
+      {/* AI API配置（OpenAI兼容模式） */}
       <div className="api-config">
         <div className="setting-item">
-          <label for="apiEnabled">启用AI转录和总结</label>
+          <label for="aiEnabled">启用AI功能</label>
           <input
             type="checkbox"
-            id="apiEnabled"
-            checked={apiConfig.enabled}
-            onChange={toggleApiEnabled}
+            id="aiEnabled"
+            checked={aiConfig.enabled}
+            onChange={toggleAiEnabled}
           />
         </div>
-        {apiConfig.enabled && (
+        {aiConfig.enabled && (
           <>
             <div className="api-config-item">
-              <label for="apiKey" style={{ fontSize: '11px', display: 'block', marginBottom: '5px' }}>
+              <label for="aiApiKey" style={{ fontSize: '11px', display: 'block', marginBottom: '5px' }}>
                 API Key:
               </label>
               <input
                 type="password"
-                id="apiKey"
-                value={apiConfig.apiKey}
-                onChange={handleApiConfigChange('apiKey')}
-                placeholder="输入火山方舟API Key"
+                id="aiApiKey"
+                value={aiConfig.apiKey}
+                onChange={handleAiConfigChange('apiKey')}
+                placeholder="输入API Key (sk-xxx)"
                 style={{
                   width: '100%',
                   fontSize: '11px',
@@ -624,15 +719,15 @@ function App() {
               />
             </div>
             <div className="api-config-item">
-              <label for="baseUrl" style={{ fontSize: '11px', display: 'block', marginBottom: '5px' }}>
+              <label for="aiBaseUrl" style={{ fontSize: '11px', display: 'block', marginBottom: '5px' }}>
                 API 地址:
               </label>
               <input
                 type="text"
-                id="baseUrl"
-                value={apiConfig.baseUrl}
-                onChange={handleApiConfigChange('baseUrl')}
-                placeholder="API地址"
+                id="aiBaseUrl"
+                value={aiConfig.baseUrl}
+                onChange={handleAiConfigChange('baseUrl')}
+                placeholder="https://dashscope.aliyuncs.com/compatible-mode/v1"
                 style={{
                   width: '100%',
                   fontSize: '11px',
@@ -640,17 +735,20 @@ function App() {
                   boxSizing: 'border-box',
                 }}
               />
+              <p style={{ fontSize: '9px', color: '#888', marginTop: '3px' }}>
+                阿里百炼: dashscope.aliyuncs.com | 火山方舟: ark.cn-beijing.volces.com/api/v3
+              </p>
             </div>
             <div className="api-config-item">
-              <label for="modelId" style={{ fontSize: '11px', display: 'block', marginBottom: '5px' }}>
+              <label for="aiModelId" style={{ fontSize: '11px', display: 'block', marginBottom: '5px' }}>
                 模型ID:
               </label>
               <input
                 type="text"
-                id="modelId"
-                value={apiConfig.modelId}
-                onChange={handleApiConfigChange('modelId')}
-                placeholder="输入模型ID（可选）"
+                id="aiModelId"
+                value={aiConfig.modelId}
+                onChange={handleAiConfigChange('modelId')}
+                placeholder="qwen-plus"
                 style={{
                   width: '100%',
                   fontSize: '11px',
@@ -658,18 +756,21 @@ function App() {
                   boxSizing: 'border-box',
                 }}
               />
+              <p style={{ fontSize: '9px', color: '#888', marginTop: '3px' }}>
+                语音识别: qwen3-asr-flash-filetrans | 大模型: qwen-plus, qwen-max
+              </p>
             </div>
           </>
         )}
       </div>
 
       {/* AI功能按钮 */}
-      {apiConfig.enabled && (
+      {aiConfig.enabled && (
         <div className="control-group">
           <button
             className="btn btn-transcribe"
             onClick={transcribeAudio}
-            disabled={transcribing || audioChunksRef.current.length === 0}
+            disabled={transcribing || !hasAudioData}
             style={{
               backgroundColor: '#2196F3',
               color: 'white',
@@ -748,9 +849,9 @@ function App() {
           默认使用 WebM (VP9/Opus) 高画质格式。
           如果需要其他格式，请使用转换工具。
         </p>
-        {apiConfig.enabled && (
+        {aiConfig.enabled && (
           <p style={{ fontSize: '10px', marginTop: '5px' }}>
-            <strong>API说明:</strong> 使用火山方舟API实现音频转文字和内容总结。
+            <strong>API说明:</strong> 使用OpenAI兼容模式调用大模型API实现音频转文字和内容总结。
           </p>
         )}
       </div>
