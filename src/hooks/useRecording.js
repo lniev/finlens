@@ -1,12 +1,14 @@
 import { useState, useRef, useCallback } from "react";
 import { saveBlob } from "../utils/media";
 
-export const useRecording = (settings, mediaFormats) => {
+export const useRecording = (settings, mediaFormats, serverConfig) => {
 	const [isRecording, setIsRecording] = useState(false);
 	const [recordingTime, setRecordingTime] = useState(0);
 	const [status, setStatus] = useState("未录制");
 	const [statusClass, setStatusClass] = useState("status-stopped");
 	const [hasAudioData, setHasAudioData] = useState(false);
+	const [recordedFiles, setRecordedFiles] = useState(null);
+	const [showSaveDialog, setShowSaveDialog] = useState(false);
 
 	const timerRef = useRef(null);
 	const mediaStreamRef = useRef(null);
@@ -16,6 +18,7 @@ export const useRecording = (settings, mediaFormats) => {
 	const videoChunksRef = useRef([]);
 	const audioStreamRef = useRef(null);
 	const videoStreamRef = useRef(null);
+	const fileNameRef = useRef("");
 
 	// 定时器
 	const startTimer = useCallback(() => {
@@ -31,30 +34,114 @@ export const useRecording = (settings, mediaFormats) => {
 		}
 	}, []);
 
-	// 保存录制
-	const saveRecordings = useCallback(() => {
-		const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+	// 准备录制文件数据
+	const prepareRecordings = useCallback((customFileName) => {
 		const { recordAudio, recordVideo } = settings;
+		const files = {
+			audio: null,
+			video: null,
+			audioBlob: null,
+			videoBlob: null,
+		};
 
-		// 保存音频
+		// 准备音频
 		if (audioChunksRef.current.length > 0 && recordAudio) {
 			const audioType = mediaFormats.audioMimeType || "audio/webm;codecs=opus";
 			const audioBlob = new Blob(audioChunksRef.current, { type: audioType });
-			saveBlob(audioBlob, `audio_${timestamp}.${mediaFormats.audioExtension}`);
+			const audioFileName = customFileName 
+				? `${customFileName}_audio.${mediaFormats.audioExtension}`
+				: `audio_${Date.now()}.${mediaFormats.audioExtension}`;
+			files.audio = audioFileName;
+			files.audioBlob = audioBlob;
+			files.audioMimeType = audioType;
 		}
 
-		// 保存视频
+		// 准备视频
 		if (videoChunksRef.current.length > 0 && recordVideo) {
 			const videoType = mediaFormats.videoMimeType || "video/webm;codecs=vp9";
 			const videoBlob = new Blob(videoChunksRef.current, { type: videoType });
-			saveBlob(videoBlob, `video_${timestamp}.${mediaFormats.videoExtension}`);
+			const videoFileName = customFileName
+				? `${customFileName}_video.${mediaFormats.videoExtension}`
+				: `video_${Date.now()}.${mediaFormats.videoExtension}`;
+			files.video = videoFileName;
+			files.videoBlob = videoBlob;
+			files.videoMimeType = videoType;
 		}
 
-		// 更新音频数据状态，启用音频转文字按钮
-		if (audioChunksRef.current.length > 0 && recordAudio) {
-			setHasAudioData(true);
-		}
+		return files;
 	}, [settings, mediaFormats]);
+
+	// 下载文件到本地
+	const downloadFiles = useCallback((files) => {
+		if (files.audioBlob && files.audio) {
+			saveBlob(files.audioBlob, files.audio);
+		}
+		if (files.videoBlob && files.video) {
+			saveBlob(files.videoBlob, files.video);
+		}
+	}, []);
+
+	// 上传文件到服务器
+	const uploadFiles = useCallback(async (files) => {
+		if (!serverConfig?.enabled || !serverConfig?.url) {
+			alert("请先配置服务器地址");
+			return { success: false, message: "服务器未配置" };
+		}
+
+		const uploadResults = [];
+		const uploadPromises = [];
+
+		// 上传音频
+		if (files.audioBlob && files.audio) {
+			const audioFormData = new FormData();
+			audioFormData.append("file", files.audioBlob, files.audio);
+			audioFormData.append("filename", files.audio);
+
+			const audioPromise = fetch(`${serverConfig.url}/upload`, {
+				method: "POST",
+				body: audioFormData,
+			})
+				.then(res => res.json())
+				.then(data => {
+					uploadResults.push({ type: "audio", ...data });
+					return data;
+				})
+				.catch(err => {
+					uploadResults.push({ type: "audio", success: false, error: err.message });
+					throw err;
+				});
+			uploadPromises.push(audioPromise);
+		}
+
+		// 上传视频
+		if (files.videoBlob && files.video) {
+			const videoFormData = new FormData();
+			videoFormData.append("file", files.videoBlob, files.video);
+			videoFormData.append("filename", files.video);
+
+			const videoPromise = fetch(`${serverConfig.url}/upload`, {
+				method: "POST",
+				body: videoFormData,
+			})
+				.then(res => res.json())
+				.then(data => {
+					uploadResults.push({ type: "video", ...data });
+					return data;
+				})
+				.catch(err => {
+					uploadResults.push({ type: "video", success: false, error: err.message });
+					throw err;
+				});
+			uploadPromises.push(videoPromise);
+		}
+
+		try {
+			await Promise.all(uploadPromises);
+			return { success: true, results: uploadResults };
+		} catch (error) {
+			return { success: false, message: error.message, results: uploadResults };
+		}
+	}, [serverConfig]);
 
 	// 开始录制
 	const startRecording = useCallback(async () => {
@@ -111,6 +198,8 @@ export const useRecording = (settings, mediaFormats) => {
 			audioChunksRef.current = [];
 			videoChunksRef.current = [];
 			setHasAudioData(false);
+			setRecordedFiles(null);
+			setShowSaveDialog(false);
 
 			// 创建音频录制器
 			if (audioStreamRef.current) {
@@ -238,14 +327,23 @@ export const useRecording = (settings, mediaFormats) => {
 			stopPromises.push(videoPromise);
 		}
 
-		// 等待所有录制器完全停止后再保存
+		// 等待所有录制器完全停止
 		Promise.all(stopPromises).then(() => {
-			console.log("所有录制器已停止，开始保存...");
+			console.log("所有录制器已停止");
 			console.log("音频数据块数:", audioChunksRef.current.length);
 			console.log("视频数据块数:", videoChunksRef.current.length);
 
-			// 保存录制文件
-			saveRecordings();
+			// 准备文件数据
+			const files = prepareRecordings();
+			setRecordedFiles(files);
+
+			// 更新音频数据状态
+			if (audioChunksRef.current.length > 0 && settings.recordAudio) {
+				setHasAudioData(true);
+			}
+
+			// 显示保存对话框
+			setShowSaveDialog(true);
 
 			// 停止流
 			if (mediaStreamRef.current) {
@@ -263,9 +361,8 @@ export const useRecording = (settings, mediaFormats) => {
 			audioRecorderRef.current = null;
 			videoRecorderRef.current = null;
 
-			setStatus("录制已停止");
+			setStatus("录制完成，等待保存");
 			setStatusClass("status-stopped");
-			setRecordingTime(0);
 
 			// 通知 background.js 录制已停止
 			chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
@@ -275,7 +372,54 @@ export const useRecording = (settings, mediaFormats) => {
 				});
 			});
 		});
-	}, [isRecording, stopTimer, saveRecordings]);
+	}, [isRecording, stopTimer, prepareRecordings, settings.recordAudio]);
+
+	// 处理保存文件
+	const handleSaveFiles = useCallback(async (fileName, action) => {
+		if (!recordedFiles) return;
+
+		// 使用自定义文件名重新准备文件
+		const files = prepareRecordings(fileName);
+
+		if (action === "download") {
+			// 下载到本地
+			downloadFiles(files);
+			setStatus("文件已下载到本地");
+		} else if (action === "upload") {
+			// 上传到服务器
+			setStatus("正在上传...");
+			const result = await uploadFiles(files);
+			if (result.success) {
+				setStatus("文件已上传到服务器");
+				alert("文件上传成功！");
+			} else {
+				setStatus("上传失败");
+				alert("上传失败: " + result.message);
+			}
+		} else if (action === "both") {
+			// 同时下载和上传
+			downloadFiles(files);
+			setStatus("正在上传...");
+			const result = await uploadFiles(files);
+			if (result.success) {
+				setStatus("文件已下载并上传");
+				alert("文件下载并上传成功！");
+			} else {
+				setStatus("下载完成，上传失败");
+				alert("下载完成，但上传失败: " + result.message);
+			}
+		}
+
+		// 关闭对话框
+		setShowSaveDialog(false);
+	}, [recordedFiles, prepareRecordings, downloadFiles, uploadFiles]);
+
+	// 取消保存
+	const cancelSave = useCallback(() => {
+		setShowSaveDialog(false);
+		setRecordedFiles(null);
+		setStatus("录制已取消");
+	}, []);
 
 	// 检查录制状态
 	const checkRecordingStatus = useCallback(() => {
@@ -296,8 +440,12 @@ export const useRecording = (settings, mediaFormats) => {
 		statusClass,
 		hasAudioData,
 		audioChunksRef,
+		showSaveDialog,
+		recordedFiles,
 		startRecording,
 		stopRecording,
+		handleSaveFiles,
+		cancelSave,
 		checkRecordingStatus,
 	};
 };

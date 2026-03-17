@@ -32,6 +32,15 @@ function App() {
 		enabled: false,
 	});
 
+	// 服务器配置
+	const [serverConfig, setServerConfig] = useState({
+		url: "",
+		enabled: false,
+	});
+
+	// 保存对话框状态
+	const [fileName, setFileName] = useState("");
+
 	// 使用录制 Hook
 	const {
 		isRecording,
@@ -40,10 +49,14 @@ function App() {
 		statusClass,
 		hasAudioData,
 		audioChunksRef,
+		showSaveDialog,
+		recordedFiles,
 		startRecording,
 		stopRecording,
+		handleSaveFiles,
+		cancelSave,
 		checkRecordingStatus,
-	} = useRecording(settings, mediaFormats);
+	} = useRecording(settings, mediaFormats, serverConfig);
 
 	// 使用 AI Hook
 	const {
@@ -58,7 +71,7 @@ function App() {
 	// 初始化
 	useEffect(() => {
 		// 加载存储的设置
-		chrome.storage.local.get(["recordingSettings", "aiApiConfig"], result => {
+		chrome.storage.local.get(["recordingSettings", "aiApiConfig", "serverConfig"], result => {
 			const defaultSettings = {
 				recordAudio: true,
 				recordVideo: true,
@@ -70,6 +83,11 @@ function App() {
 			// 加载 AI API 配置
 			if (result.aiApiConfig) {
 				setAiConfig(result.aiApiConfig);
+			}
+
+			// 加载服务器配置
+			if (result.serverConfig) {
+				setServerConfig(result.serverConfig);
 			}
 		});
 
@@ -104,6 +122,42 @@ function App() {
 		const newConfig = { ...aiConfig, enabled: !aiConfig.enabled };
 		setAiConfig(newConfig);
 		chrome.storage.local.set({ aiApiConfig: newConfig });
+	};
+
+	// 更新服务器配置
+	const handleServerConfigChange = key => {
+		return e => {
+			const newConfig = { ...serverConfig, [key]: e.target.value };
+			setServerConfig(newConfig);
+			chrome.storage.local.set({ serverConfig: newConfig });
+		};
+	};
+
+	// 切换服务器启用状态
+	const toggleServerEnabled = () => {
+		const newConfig = { ...serverConfig, enabled: !serverConfig.enabled };
+		setServerConfig(newConfig);
+		chrome.storage.local.set({ serverConfig: newConfig });
+	};
+
+	// 测试服务器连接
+	const testServerConnection = async () => {
+		if (!serverConfig.url) {
+			alert("请先输入服务器地址");
+			return;
+		}
+
+		try {
+			const response = await fetch(`${serverConfig.url}/health`);
+			const data = await response.json();
+			if (data.status === "ok") {
+				alert("服务器连接成功！");
+			} else {
+				alert("服务器响应异常");
+			}
+		} catch (error) {
+			alert("连接失败: " + error.message);
+		}
 	};
 
 	// 导航菜单项
@@ -337,11 +391,94 @@ function App() {
 
 					{/* 设置页面 */}
 					{currentPage === "settings" && (
-						<div className="settings-panel">
-							<h3 className="panel-title">⚙️ 系统设置</h3>
-							<p style={{ color: "#888", textAlign: "center", padding: "40px" }}>
-								更多设置选项开发中...
-							</p>
+						<div className="settings-content">
+							{/* 服务器配置面板 */}
+							<div className="settings-panel">
+								<h3 className="panel-title">🖥️ 远程服务器配置</h3>
+								<div className="ai-toggle">
+									<input
+										type="checkbox"
+										id="serverEnabled"
+										checked={serverConfig.enabled}
+										onChange={toggleServerEnabled}
+									/>
+									<label htmlFor="serverEnabled">启用远程服务器存储</label>
+								</div>
+
+								{serverConfig.enabled && (
+									<div className="server-config-form">
+										<div className="form-group full-width">
+											<label htmlFor="serverUrl">服务器地址</label>
+											<input
+												type="text"
+												id="serverUrl"
+												value={serverConfig.url}
+												onChange={handleServerConfigChange("url")}
+												placeholder="http://your-server-ip:3000"
+											/>
+											<span className="help-text">
+												输入您的服务器 IP 地址和端口，例如: http://192.168.1.100:3000
+											</span>
+										</div>
+										<button
+											className="btn btn-secondary"
+											onClick={testServerConnection}
+											style={{ marginTop: "10px" }}
+										>
+											🔄 测试连接
+										</button>
+									</div>
+								)}
+							</div>
+
+							{/* AI 配置面板（在设置页面也显示） */}
+							<div className="settings-panel">
+								<h3 className="panel-title">🤖 AI 功能配置</h3>
+								<div className="ai-toggle">
+									<input
+										type="checkbox"
+										id="aiEnabledSettings"
+										checked={aiConfig.enabled}
+										onChange={toggleAiEnabled}
+									/>
+									<label htmlFor="aiEnabledSettings">启用 AI 功能</label>
+								</div>
+
+								{aiConfig.enabled && (
+									<div className="ai-config-form">
+										<div className="form-group">
+											<label htmlFor="aiApiKeySettings">API Key</label>
+											<input
+												type="password"
+												id="aiApiKeySettings"
+												value={aiConfig.apiKey}
+												onChange={handleAiConfigChange("apiKey")}
+												placeholder="sk-xxx"
+											/>
+										</div>
+										<div className="form-group">
+											<label htmlFor="aiModelIdSettings">模型 ID</label>
+											<input
+												type="text"
+												id="aiModelIdSettings"
+												value={aiConfig.modelId}
+												onChange={handleAiConfigChange("modelId")}
+												placeholder="qwen-plus"
+											/>
+										</div>
+										<div className="form-group full-width">
+											<label htmlFor="aiBaseUrlSettings">API 地址</label>
+											<input
+												type="text"
+												id="aiBaseUrlSettings"
+												value={aiConfig.baseUrl}
+												onChange={handleAiConfigChange("baseUrl")}
+												placeholder="https://dashscope.aliyuncs.com/compatible-mode/v1"
+											/>
+										</div>
+									</div>
+								)}
+							</div>
 						</div>
 					)}
 				</div>
@@ -352,6 +489,11 @@ function App() {
 						<strong>格式说明:</strong> 浏览器原生不支持 MP4/MP3 格式，默认使用 WebM
 						(VP9/Opus) 高画质格式
 					</p>
+					{serverConfig.enabled && (
+						<p>
+							<strong>服务器:</strong> {serverConfig.url || "未配置"}
+						</p>
+					)}
 					{aiConfig.enabled && (
 						<p>
 							<strong>API说明:</strong> 使用 OpenAI 兼容模式调用大模型 API
@@ -359,6 +501,75 @@ function App() {
 					)}
 				</footer>
 			</main>
+
+			{/* 保存文件对话框 */}
+			{showSaveDialog && (
+				<div className="modal-overlay">
+					<div className="modal-content">
+						<h3 className="modal-title">💾 保存录制文件</h3>
+
+						<div className="modal-body">
+							<div className="form-group">
+								<label htmlFor="fileName">文件名称</label>
+								<input
+									type="text"
+									id="fileName"
+									value={fileName}
+									onChange={e => setFileName(e.target.value)}
+									placeholder="输入文件名（不含扩展名）"
+									autoFocus
+								/>
+								<span className="help-text">
+									文件将保存为: {fileName || "recording"}_audio/video.webm
+								</span>
+							</div>
+
+							{recordedFiles && (
+								<div className="file-preview">
+									<p><strong>待保存文件:</strong></p>
+									{recordedFiles.audio && (
+										<p>🎤 {fileName || "recording"}_audio.{mediaFormats.audioExtension}</p>
+									)}
+									{recordedFiles.video && (
+										<p>📹 {fileName || "recording"}_video.{mediaFormats.videoExtension}</p>
+									)}
+								</div>
+							)}
+						</div>
+
+						<div className="modal-actions">
+							<button
+								className="btn btn-secondary"
+								onClick={cancelSave}
+							>
+								取消
+							</button>
+							<button
+								className="btn btn-start"
+								onClick={() => handleSaveFiles(fileName || "recording", "download")}
+							>
+								💻 下载到本地
+							</button>
+							{serverConfig.enabled && (
+								<button
+									className="btn btn-transcribe"
+									onClick={() => handleSaveFiles(fileName || "recording", "upload")}
+								>
+									☁️ 上传到服务器
+								</button>
+							)}
+							{serverConfig.enabled && (
+								<button
+									className="btn btn-summarize"
+									onClick={() => handleSaveFiles(fileName || "recording", "both")}
+								>
+									💻☁️ 下载并上传
+								</button>
+							)}
+						</div>
+					</div>
+				</div>
+			)}
 		</div>
 	);
 }
