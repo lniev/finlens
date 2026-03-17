@@ -2,6 +2,8 @@ function SettingsPage({
 	aiConfig,
 	onAiConfigChange,
 	onToggleAi,
+	summaryModel,
+	onSummaryModelChange,
 }) {
 	return (
 		<div className="settings-content">
@@ -31,16 +33,29 @@ function SettingsPage({
 							/>
 						</div>
 						<div className="form-group">
-							<label htmlFor="aiModelIdSettings">模型 ID</label>
+							<label htmlFor="aiModelIdSettings">语音识别模型 ID</label>
 							<input
 								type="text"
 								id="aiModelIdSettings"
 								value={aiConfig.modelId}
 								onChange={onAiConfigChange("modelId")}
-								placeholder="qwen-plus"
+								placeholder="qwen3-asr-flash"
 							/>
 							<span className="help-text">
-								语音识别: qwen3-asr-flash-filetrans | 大模型: qwen-plus, qwen-max
+								语音识别: qwen3-asr-flash-filetrans
+							</span>
+						</div>
+						<div className="form-group">
+							<label htmlFor="summaryModelSettings">AI 总结模型</label>
+							<select
+								id="summaryModelSettings"
+								value={summaryModel}
+								onChange={e => onSummaryModelChange(e.target.value)}
+							>
+								<option value="kimi-k2.5">kimi-k2.5</option>
+							</select>
+							<span className="help-text">
+								用于内容总结的模型
 							</span>
 						</div>
 						<div className="form-group full-width">

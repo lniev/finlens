@@ -6,6 +6,7 @@ export const useAI = (aiConfig, audioChunksRef) => {
 	const [summarizing, setSummarizing] = useState(false);
 	const [transcriptResult, setTranscriptResult] = useState("");
 	const [summaryResult, setSummaryResult] = useState("");
+	const [summaryModel, setSummaryModel] = useState("kimi-k2.5");
 
 	// 从文件路径读取并转录音频
 	const transcribeAudioFromFile = useCallback(async (filePath) => {
@@ -165,6 +166,21 @@ export const useAI = (aiConfig, audioChunksRef) => {
 			return;
 		}
 
+		return await summarizeText(textToSummarize);
+	}, [aiConfig, transcriptResult]);
+
+	// 总结指定文本（用于历史记录）
+	const summarizeText = useCallback(async (textToSummarize) => {
+		if (!aiConfig.enabled || !aiConfig.apiKey) {
+			alert("请先在设置中启用AI功能并配置API Key");
+			return null;
+		}
+
+		if (!textToSummarize) {
+			alert("转录文本为空");
+			return null;
+		}
+
 		setSummarizing(true);
 		setSummaryResult("");
 
@@ -177,8 +193,7 @@ export const useAI = (aiConfig, audioChunksRef) => {
 					Authorization: `Bearer ${aiConfig.apiKey}`,
 				},
 				body: JSON.stringify({
-					// model: aiConfig.modelId || "qwen-plus",
-					model: "kimi-k2.5",
+					model: summaryModel,
 					messages: [
 						{
 							role: "system",
@@ -203,15 +218,17 @@ export const useAI = (aiConfig, audioChunksRef) => {
 			const data = await response.json();
 			const summary = data.choices?.[0]?.message?.content || "无法生成总结";
 			setSummaryResult(summary);
+			return summary;
 		} catch (error) {
 			console.error("总结失败:", error);
 			alert(
 				`总结失败: ${error.message}\n\n请参考文档：https://help.aliyun.com/model-studio/developer-reference/error-code`,
 			);
+			return null;
 		} finally {
 			setSummarizing(false);
 		}
-	}, [aiConfig, transcriptResult]);
+	}, [aiConfig, summaryModel]);
 
 	return {
 		transcribing,
@@ -223,5 +240,8 @@ export const useAI = (aiConfig, audioChunksRef) => {
 		transcribeAudio,
 		transcribeAudioFromFile,
 		summarizeContent,
+		summarizeText,
+		summaryModel,
+		setSummaryModel,
 	};
 };

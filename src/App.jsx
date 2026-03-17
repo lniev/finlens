@@ -3,7 +3,7 @@ import "./App.css";
 import { useAI } from "./hooks/useAI";
 import { useRecording } from "./hooks/useRecording";
 import { detectMediaFormats, formatTime } from "./utils/media";
-import { addRecording, getAllRecordings, getRecording, deleteRecording } from "./utils/db";
+import { addRecording, getAllRecordings, getRecording, updateRecording, deleteRecording } from "./utils/db";
 
 // 导入组件
 import Sidebar from "./components/common/Sidebar";
@@ -86,6 +86,9 @@ function App() {
 		transcribeAudio,
 		transcribeAudioFromFile,
 		summarizeContent,
+		summarizeText,
+		summaryModel,
+		setSummaryModel,
 	} = useAI(aiConfig, audioChunksRef);
 
 	// 初始化
@@ -98,22 +101,24 @@ function App() {
 
 	// 加载存储的设置
 	const loadStoredSettings = useCallback(() => {
-		chrome.storage.local.get(["recordingSettings", "aiApiConfig", "serverConfig"], result => {
-			const defaultSettings = {
-				recordAudio: true,
-				recordVideo: true,
-				mutePage: true,
-				autoNaming: true,
-			};
-			setSettings(result.recordingSettings || defaultSettings);
+		if (typeof chrome !== "undefined" && chrome.storage) {
+			chrome.storage.local.get(["recordingSettings", "aiApiConfig", "serverConfig"], result => {
+				const defaultSettings = {
+					recordAudio: true,
+					recordVideo: true,
+					mutePage: true,
+					autoNaming: true,
+				};
+				setSettings(result.recordingSettings || defaultSettings);
 
-			if (result.aiApiConfig) {
-				setAiConfig(result.aiApiConfig);
-			}
-			if (result.serverConfig) {
-				setServerConfig(result.serverConfig);
-			}
-		});
+				if (result.aiApiConfig) {
+					setAiConfig(result.aiApiConfig);
+				}
+				if (result.serverConfig) {
+					setServerConfig(result.serverConfig);
+				}
+			});
+		}
 	}, []);
 
 	// 加载媒体格式
@@ -139,10 +144,13 @@ function App() {
 
 		if (settings.autoNaming) {
 			try {
-				const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-				const title = tab.title || "recording";
-				const cleanTitle = title.replace(/[<>:"/\\|?*]/g, "_").slice(0, 50);
-				return `${cleanTitle}_${dateStr}`;
+				if (typeof chrome !== "undefined" && chrome.tabs) {
+					const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+					const title = tab?.title || "recording";
+					const cleanTitle = title.replace(/[<>:"/\\|?*]/g, "_").slice(0, 50);
+					return `${cleanTitle}_${dateStr}`;
+				}
+				return `recording_${dateStr}`;
 			} catch {
 				return `recording_${dateStr}`;
 			}
@@ -158,7 +166,9 @@ function App() {
 			const value = e.target.type === "checkbox" ? e.target.checked : e.target.value;
 			const newSettings = { ...settings, [key]: value };
 			setSettings(newSettings);
-			chrome.storage.local.set({ recordingSettings: newSettings });
+			if (typeof chrome !== "undefined" && chrome.storage) {
+				chrome.storage.local.set({ recordingSettings: newSettings });
+			}
 		};
 	}, [settings]);
 
@@ -167,7 +177,9 @@ function App() {
 		return e => {
 			const newConfig = { ...aiConfig, [key]: e.target.value };
 			setAiConfig(newConfig);
-			chrome.storage.local.set({ aiApiConfig: newConfig });
+			if (typeof chrome !== "undefined" && chrome.storage) {
+				chrome.storage.local.set({ aiApiConfig: newConfig });
+			}
 		};
 	}, [aiConfig]);
 
@@ -175,7 +187,9 @@ function App() {
 	const toggleAiEnabled = useCallback(() => {
 		const newConfig = { ...aiConfig, enabled: !aiConfig.enabled };
 		setAiConfig(newConfig);
-		chrome.storage.local.set({ aiApiConfig: newConfig });
+		if (typeof chrome !== "undefined" && chrome.storage) {
+			chrome.storage.local.set({ aiApiConfig: newConfig });
+		}
 	}, [aiConfig]);
 
 	// 更新服务器配置
@@ -183,7 +197,9 @@ function App() {
 		return e => {
 			const newConfig = { ...serverConfig, [key]: e.target.value };
 			setServerConfig(newConfig);
-			chrome.storage.local.set({ serverConfig: newConfig });
+			if (typeof chrome !== "undefined" && chrome.storage) {
+				chrome.storage.local.set({ serverConfig: newConfig });
+			}
 		};
 	}, [serverConfig]);
 
@@ -191,7 +207,9 @@ function App() {
 	const toggleServerEnabled = useCallback(() => {
 		const newConfig = { ...serverConfig, enabled: !serverConfig.enabled };
 		setServerConfig(newConfig);
-		chrome.storage.local.set({ serverConfig: newConfig });
+		if (typeof chrome !== "undefined" && chrome.storage) {
+			chrome.storage.local.set({ serverConfig: newConfig });
+		}
 	}, [serverConfig]);
 
 	// 测试服务器连接
@@ -296,8 +314,9 @@ function App() {
 		// 如果转录成功，保存到数据库
 		if (transcript) {
 			try {
-				const updatedRecording = { ...recording, transcript };
-				// 这里需要添加更新记录的API调用
+				await updateRecording(recording.id, { transcript });
+				// 更新当前选中的记录
+				setSelectedRecording(prev => ({ ...prev, transcript }));
 				console.log("转录结果已保存:", transcript);
 			} catch (error) {
 				console.error("保存转录结果失败:", error);
@@ -307,8 +326,26 @@ function App() {
 
 	// 为历史记录执行AI总结
 	const handleSummarizeForRecording = useCallback(async (recording) => {
-		alert("请确保转录文本已存在");
-	}, []);
+		if (!recording.transcript) {
+			alert("请确保转录文本已存在");
+			return;
+		}
+
+		// 直接使用 summarizeText 进行总结
+		const summary = await summarizeText(recording.transcript);
+		
+		// 如果总结成功，保存到数据库
+		if (summary) {
+			try {
+				await updateRecording(recording.id, { summary });
+				// 更新当前选中的记录
+				setSelectedRecording(prev => ({ ...prev, summary }));
+				console.log("总结结果已保存:", summary);
+			} catch (error) {
+				console.error("保存总结结果失败:", error);
+			}
+		}
+	}, [summarizeText]);
 
 	// 返回历史记录
 	const handleBackToHistory = useCallback(() => {
@@ -383,6 +420,8 @@ function App() {
 						aiConfig={aiConfig}
 						onAiConfigChange={handleAiConfigChange}
 						onToggleAi={toggleAiEnabled}
+						summaryModel={summaryModel}
+						onSummaryModelChange={setSummaryModel}
 					/>
 				)}
 				</div>

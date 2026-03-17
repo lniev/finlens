@@ -174,11 +174,14 @@ export const useRecording = (settings, mediaFormats, serverConfig) => {
 			}
 
 			// 获取当前标签页 ID
-			const [currentTab] = await chrome.tabs.query({
-				active: true,
-				currentWindow: true,
-			});
-			const tabId = currentTab.id;
+			let tabId = null;
+			if (typeof chrome !== "undefined" && chrome.tabs) {
+				const [currentTab] = await chrome.tabs.query({
+					active: true,
+					currentWindow: true,
+				});
+				tabId = currentTab?.id;
+			}
 
 			// 请求屏幕共享
 			const displayMediaOptions = {
@@ -268,13 +271,17 @@ export const useRecording = (settings, mediaFormats, serverConfig) => {
 			setStatusClass("status-recording");
 
 			// 保存静音设置到 chrome.storage
-			chrome.storage.local.set({ mutePage: settings.mutePage });
+			if (typeof chrome !== "undefined" && chrome.storage) {
+				chrome.storage.local.set({ mutePage: settings.mutePage });
+			}
 
 			// 通知 background.js 录制已开始
-			chrome.runtime.sendMessage({
-				action: "recordingStarted",
-				tabId: tabId,
-			});
+			if (typeof chrome !== "undefined" && chrome.runtime) {
+				chrome.runtime.sendMessage({
+					action: "recordingStarted",
+					tabId: tabId,
+				});
+			}
 
 			// 监听流结束事件
 			const tracks = mediaStream.getTracks();
@@ -372,12 +379,16 @@ export const useRecording = (settings, mediaFormats, serverConfig) => {
 			setStatusClass("status-stopped");
 
 			// 通知 background.js 录制已停止
-			chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
-				chrome.runtime.sendMessage({
-					action: "recordingStopped",
-					tabId: tabs[0].id,
+			if (typeof chrome !== "undefined" && chrome.tabs && chrome.runtime) {
+				chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
+					if (tabs && tabs[0]) {
+						chrome.runtime.sendMessage({
+							action: "recordingStopped",
+							tabId: tabs[0].id,
+						});
+					}
 				});
-			});
+			}
 		});
 	}, [isRecording, stopTimer, prepareRecordings, settings.recordAudio]);
 
@@ -430,14 +441,16 @@ export const useRecording = (settings, mediaFormats, serverConfig) => {
 
 	// 检查录制状态
 	const checkRecordingStatus = useCallback(() => {
-		chrome.runtime.sendMessage({ action: "isRecording" }, response => {
-			if (response && response.isRecording) {
-				setIsRecording(true);
-				startTimer();
-				setStatus("正在录制");
-				setStatusClass("status-recording");
-			}
-		});
+		if (typeof chrome !== "undefined" && chrome.runtime) {
+			chrome.runtime.sendMessage({ action: "isRecording" }, response => {
+				if (response && response.isRecording) {
+					setIsRecording(true);
+					startTimer();
+					setStatus("正在录制");
+					setStatusClass("status-recording");
+				}
+			});
+		}
 	}, [startTimer]);
 
 	return {

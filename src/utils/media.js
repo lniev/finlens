@@ -74,7 +74,7 @@ export const saveBlob = (blob, filename) => {
 	return new Promise((resolve, reject) => {
 		const url = URL.createObjectURL(blob);
 
-		if (chrome.downloads) {
+		if (typeof chrome !== "undefined" && chrome.downloads) {
 			chrome.downloads.download(
 				{
 					url: url,
