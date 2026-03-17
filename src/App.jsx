@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
-import { useRecording } from "./hooks/useRecording";
-import { useAI } from "./hooks/useAI";
-import { detectMediaFormats, formatTime } from "./utils/media";
 import "./App.css";
+import { useAI } from "./hooks/useAI";
+import { useRecording } from "./hooks/useRecording";
+import { detectMediaFormats, formatTime } from "./utils/media";
 
 function App() {
+	// 当前页面状态
+	const [currentPage, setCurrentPage] = useState("record");
+
 	// 设置状态
 	const [settings, setSettings] = useState({
 		recordAudio: true,
@@ -102,262 +105,259 @@ function App() {
 		chrome.storage.local.set({ aiApiConfig: newConfig });
 	};
 
+	// 导航菜单项
+	const navItems = [
+		{ id: "record", label: "录制", icon: "🎥" },
+		{ id: "history", label: "历史记录", icon: "📁" },
+		{ id: "settings", label: "设置", icon: "⚙️" },
+	];
+
 	return (
-		<div className="container">
-			<h1>直播录制插件</h1>
-
-			<div className="control-group">
-				<button
-					id="startBtn"
-					className="btn btn-start"
-					onClick={startRecording}
-					disabled={isRecording}
-				>
-					开始录制
-				</button>
-				<button
-					id="stopBtn"
-					className="btn btn-stop"
-					onClick={stopRecording}
-					disabled={!isRecording}
-				>
-					停止录制
-				</button>
-			</div>
-
-			<div id="status" className={`status ${statusClass}`}>
-				{status}
-			</div>
-
-			<div className="settings">
-				<div className="setting-item">
-					<label htmlFor="recordAudio">录制音频</label>
-					<input
-						type="checkbox"
-						id="recordAudio"
-						checked={settings.recordAudio}
-						onChange={handleSettingsChange("recordAudio")}
-						disabled={isRecording}
-					/>
-				</div>
-				<div className="setting-item">
-					<label htmlFor="recordVideo">录制视频</label>
-					<input
-						type="checkbox"
-						id="recordVideo"
-						checked={settings.recordVideo}
-						onChange={handleSettingsChange("recordVideo")}
-						disabled={isRecording}
-					/>
-				</div>
-				<div className="setting-item">
-					<label htmlFor="mutePage">页面静音</label>
-					<input
-						type="checkbox"
-						id="mutePage"
-						checked={settings.mutePage}
-						onChange={handleSettingsChange("mutePage")}
-						disabled={isRecording}
-					/>
-				</div>
-			</div>
-
-			<div className="recording-info" id="recordingInfo">
-				{recordingTime > 0 &&
-					isRecording &&
-					`录制时间: ${formatTime(recordingTime)}`}
-			</div>
-
-			{/* AI API配置 */}
-			<div className="api-config">
-				<div className="setting-item">
-					<label htmlFor="aiEnabled">启用AI功能</label>
-					<input
-						type="checkbox"
-						id="aiEnabled"
-						checked={aiConfig.enabled}
-						onChange={toggleAiEnabled}
-					/>
-				</div>
-				{aiConfig.enabled && (
-					<>
-						<div className="api-config-item">
-							<label
-								htmlFor="aiApiKey"
-								style={{
-									fontSize: "11px",
-									display: "block",
-									marginBottom: "5px",
-								}}
+		<div className="app-container">
+			{/* 侧边栏 */}
+			<aside className="sidebar">
+				<h1 className="app-title">🎬 直播录制</h1>
+				<nav>
+					<ul className="nav-menu">
+						{navItems.map(item => (
+							<li
+								key={item.id}
+								className={`nav-item ${currentPage === item.id ? "active" : ""}`}
+								onClick={() => setCurrentPage(item.id)}
 							>
-								API Key:
-							</label>
-							<input
-								type="password"
-								id="aiApiKey"
-								value={aiConfig.apiKey}
-								onChange={handleAiConfigChange("apiKey")}
-								placeholder="输入API Key (sk-xxx)"
-								style={{
-									width: "100%",
-									fontSize: "11px",
-									padding: "4px",
-									boxSizing: "border-box",
-								}}
-							/>
-						</div>
-						<div className="api-config-item">
-							<label
-								htmlFor="aiBaseUrl"
-								style={{
-									fontSize: "11px",
-									display: "block",
-									marginBottom: "5px",
-								}}
-							>
-								API 地址:
-							</label>
-							<input
-								type="text"
-								id="aiBaseUrl"
-								value={aiConfig.baseUrl}
-								onChange={handleAiConfigChange("baseUrl")}
-								placeholder="https://dashscope.aliyuncs.com/compatible-mode/v1"
-								style={{
-									width: "100%",
-									fontSize: "11px",
-									padding: "4px",
-									boxSizing: "border-box",
-								}}
-							/>
-							<p style={{ fontSize: "9px", color: "#888", marginTop: "3px" }}>
-								阿里百炼: dashscope.aliyuncs.com | 火山方舟:
-								ark.cn-beijing.volces.com/api/v3
+								<span className="nav-icon">{item.icon}</span>
+								<span>{item.label}</span>
+							</li>
+						))}
+					</ul>
+				</nav>
+			</aside>
+
+			{/* 主内容区域 */}
+			<main className="main-content">
+				{/* 顶部工具栏 */}
+				<header className="toolbar">
+					<h2 className="toolbar-title">
+						{currentPage === "record" && "录制控制"}
+						{currentPage === "history" && "历史记录"}
+						{currentPage === "settings" && "系统设置"}
+					</h2>
+					<div className="toolbar-actions">
+						{isRecording && (
+							<span className="recording-time">{formatTime(recordingTime)}</span>
+						)}
+					</div>
+				</header>
+
+				{/* 内容区域 */}
+				<div className="content-area">
+					{/* 录制页面 */}
+					{currentPage === "record" && (
+						<>
+							{/* 录制控制面板 */}
+							<div className="recording-panel">
+								{/* 状态栏 */}
+								<div className={`status-bar ${statusClass}`}>
+									<div className="status-indicator"></div>
+									<span className="status-text">{status}</span>
+								</div>
+
+								{/* 录制按钮 */}
+								<div className="recording-controls">
+									<button
+										className="btn btn-start"
+										onClick={startRecording}
+										disabled={isRecording}
+									>
+										<span>▶</span> 开始录制
+									</button>
+									<button
+										className="btn btn-stop"
+										onClick={stopRecording}
+										disabled={!isRecording}
+									>
+										<span>⏹</span> 停止录制
+									</button>
+								</div>
+							</div>
+
+							{/* 设置面板 */}
+							<div className="settings-panel">
+								<h3 className="panel-title">录制设置</h3>
+								<div className="settings-grid">
+									<div className="setting-item">
+										<label htmlFor="recordAudio">🎤 录制音频</label>
+										<input
+											type="checkbox"
+											id="recordAudio"
+											checked={settings.recordAudio}
+											onChange={handleSettingsChange("recordAudio")}
+											disabled={isRecording}
+										/>
+									</div>
+									<div className="setting-item">
+										<label htmlFor="recordVideo">📹 录制视频</label>
+										<input
+											type="checkbox"
+											id="recordVideo"
+											checked={settings.recordVideo}
+											onChange={handleSettingsChange("recordVideo")}
+											disabled={isRecording}
+										/>
+									</div>
+									<div className="setting-item">
+										<label htmlFor="mutePage">🔇 页面静音</label>
+										<input
+											type="checkbox"
+											id="mutePage"
+											checked={settings.mutePage}
+											onChange={handleSettingsChange("mutePage")}
+											disabled={isRecording}
+										/>
+									</div>
+								</div>
+							</div>
+
+							{/* AI 配置面板 */}
+							<div className="ai-config-panel">
+								<h3 className="panel-title">🤖 AI 功能配置</h3>
+								<div className="ai-toggle">
+									<input
+										type="checkbox"
+										id="aiEnabled"
+										checked={aiConfig.enabled}
+										onChange={toggleAiEnabled}
+									/>
+									<label htmlFor="aiEnabled">启用 AI 功能</label>
+								</div>
+
+								{aiConfig.enabled && (
+									<>
+										<div className="ai-config-form">
+											<div className="form-group">
+												<label htmlFor="aiApiKey">API Key</label>
+												<input
+													type="password"
+													id="aiApiKey"
+													value={aiConfig.apiKey}
+													onChange={handleAiConfigChange("apiKey")}
+													placeholder="sk-xxx"
+												/>
+											</div>
+											<div className="form-group">
+												<label htmlFor="aiModelId">模型 ID</label>
+												<input
+													type="text"
+													id="aiModelId"
+													value={aiConfig.modelId}
+													onChange={handleAiConfigChange("modelId")}
+													placeholder="qwen-plus"
+												/>
+												<span className="help-text">
+													语音识别: qwen3-asr-flash | 大模型: qwen-plus
+												</span>
+											</div>
+											<div className="form-group full-width">
+												<label htmlFor="aiBaseUrl">API 地址</label>
+												<input
+													type="text"
+													id="aiBaseUrl"
+													value={aiConfig.baseUrl}
+													onChange={handleAiConfigChange("baseUrl")}
+													placeholder="https://dashscope.aliyuncs.com/compatible-mode/v1"
+												/>
+												<span className="help-text">
+													阿里百炼: dashscope.aliyuncs.com | 火山方舟:
+													ark.cn-beijing.volces.com/api/v3
+												</span>
+											</div>
+										</div>
+
+										{/* AI 功能按钮 */}
+										<div className="ai-actions">
+											<button
+												className="btn btn-transcribe"
+												onClick={transcribeAudio}
+												disabled={transcribing || !hasAudioData}
+											>
+												{transcribing ? "📝 转录中..." : "🎤 音频转文字"}
+											</button>
+											<button
+												className="btn btn-summarize"
+												onClick={summarizeContent}
+												disabled={summarizing || !transcriptResult}
+											>
+												{summarizing ? "📊 总结中..." : "📋 内容总结"}
+											</button>
+										</div>
+									</>
+								)}
+							</div>
+
+							{/* 结果展示面板 */}
+							{(transcriptResult || summaryResult) && (
+								<div className="results-panel">
+									<h3 className="panel-title">📄 处理结果</h3>
+
+									{transcriptResult && (
+										<div className="result-section">
+											<div className="result-header">
+												<h4 className="result-title">🎤 音频转录</h4>
+											</div>
+											<div className="result-content transcript">
+												{transcriptResult}
+											</div>
+										</div>
+									)}
+
+									{summaryResult && (
+										<div className="result-section">
+											<div className="result-header">
+												<h4 className="result-title">📋 内容总结</h4>
+											</div>
+											<div className="result-content summary">
+												{summaryResult}
+											</div>
+										</div>
+									)}
+								</div>
+							)}
+						</>
+					)}
+
+					{/* 历史记录页面 */}
+					{currentPage === "history" && (
+						<div className="settings-panel">
+							<p style={{ color: "#888", textAlign: "center", padding: "40px" }}>
+								📁 历史记录功能开发中...
 							</p>
 						</div>
-						<div className="api-config-item">
-							<label
-								htmlFor="aiModelId"
-								style={{
-									fontSize: "11px",
-									display: "block",
-									marginBottom: "5px",
-								}}
-							>
-								模型ID:
-							</label>
-							<input
-								type="text"
-								id="aiModelId"
-								value={aiConfig.modelId}
-								onChange={handleAiConfigChange("modelId")}
-								placeholder="qwen-plus"
-								style={{
-									width: "100%",
-									fontSize: "11px",
-									padding: "4px",
-									boxSizing: "border-box",
-								}}
-							/>
-							<p style={{ fontSize: "9px", color: "#888", marginTop: "3px" }}>
-								语音识别: qwen3-asr-flash | 大模型: qwen-plus, qwen-max
+					)}
+
+					{/* 设置页面 */}
+					{currentPage === "settings" && (
+						<div className="settings-panel">
+							<h3 className="panel-title">⚙️ 系统设置</h3>
+							<p style={{ color: "#888", textAlign: "center", padding: "40px" }}>
+								更多设置选项开发中...
 							</p>
 						</div>
-					</>
-				)}
-			</div>
-
-			{/* AI功能按钮 */}
-			{aiConfig.enabled && (
-				<div className="control-group">
-					<button
-						className="btn btn-transcribe"
-						onClick={transcribeAudio}
-						disabled={transcribing || !hasAudioData}
-						style={{
-							backgroundColor: "#2196F3",
-							color: "white",
-							marginBottom: "8px",
-							fontSize: "12px",
-							padding: "8px",
-						}}
-					>
-						{transcribing ? "转录中..." : "音频转文字"}
-					</button>
-					<button
-						className="btn btn-summarize"
-						onClick={summarizeContent}
-						disabled={summarizing || !transcriptResult}
-						style={{
-							backgroundColor: "#9C27B0",
-							color: "white",
-							fontSize: "12px",
-							padding: "8px",
-						}}
-					>
-						{summarizing ? "总结中..." : "内容总结"}
-					</button>
+					)}
 				</div>
-			)}
 
-			{/* 转录和总结结果 */}
-			{transcriptResult && (
-				<div className="transcript-result">
-					<h4 style={{ fontSize: "12px", marginBottom: "5px", color: "#333" }}>
-						音频转录：
-					</h4>
-					<div
-						style={{
-							fontSize: "11px",
-							color: "#555",
-							backgroundColor: "#f9f9f9",
-							padding: "8px",
-							borderRadius: "4px",
-							maxHeight: "200px",
-							overflowY: "auto",
-						}}
-					>
-						{transcriptResult}
-					</div>
-				</div>
-			)}
-
-			{summaryResult && (
-				<div className="summary-result">
-					<h4 style={{ fontSize: "12px", marginBottom: "5px", color: "#333" }}>
-						内容总结：
-					</h4>
-					<div
-						style={{
-							fontSize: "11px",
-							color: "#555",
-							backgroundColor: "#f0f8ff",
-							padding: "8px",
-							borderRadius: "4px",
-							maxHeight: "200px",
-							overflowY: "auto",
-						}}
-					>
-						{summaryResult}
-					</div>
-				</div>
-			)}
-
-			<div className="format-info">
-				<p>
-					<strong>格式说明:</strong>
-				</p>
-				<p style={{ fontSize: "10px", marginTop: "5px" }}>
-					浏览器原生不支持 MP4 和 MP3 格式（专利格式）， 默认使用 WebM
-					(VP9/Opus) 高画质格式。 如果需要其他格式，请使用转换工具。
-				</p>
-				{aiConfig.enabled && (
-					<p style={{ fontSize: "10px", marginTop: "5px" }}>
-						<strong>API说明:</strong>{" "}
-						使用OpenAI兼容模式调用大模型API实现音频转文字和内容总结。
+				{/* 底部信息栏 */}
+				<footer className="footer-info">
+					<p>
+						<strong>格式说明:</strong> 浏览器原生不支持 MP4/MP3 格式，默认使用 WebM
+						(VP9/Opus) 高画质格式
 					</p>
-				)}
-			</div>
+					{aiConfig.enabled && (
+						<p>
+							<strong>API说明:</strong> 使用 OpenAI 兼容模式调用大模型 API
+						</p>
+					)}
+				</footer>
+			</main>
 		</div>
 	);
 }
