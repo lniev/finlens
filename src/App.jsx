@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import ReactMarkdown from "react-markdown";
 import "./App.css";
 import { useAI } from "./hooks/useAI";
 import { useRecording } from "./hooks/useRecording";
@@ -304,8 +305,8 @@ function App() {
 											<div className="result-header">
 												<h4 className="result-title">🎤 音频转录</h4>
 											</div>
-											<div className="result-content transcript">
-												{transcriptResult}
+											<div className="result-content transcript markdown-body">
+												<ReactMarkdown>{transcriptResult}</ReactMarkdown>
 											</div>
 										</div>
 									)}
@@ -315,8 +316,8 @@ function App() {
 											<div className="result-header">
 												<h4 className="result-title">📋 内容总结</h4>
 											</div>
-											<div className="result-content summary">
-												{summaryResult}
+											<div className="result-content summary markdown-body">
+												<ReactMarkdown>{summaryResult}</ReactMarkdown>
 											</div>
 										</div>
 									)}

@@ -389,9 +389,8 @@
   font-size: 13px;
   line-height: 1.6;
   color: #555;
-  max-height: 200px;
+  max-height: 250px;
   overflow-y: auto;
-  white-space: pre-wrap;
 }
 
 .result-content.transcript {
@@ -402,6 +401,199 @@
 .result-content.summary {
   background: #f3e5f5;
   border-left: 4px solid #9C27B0;
+}
+
+/* Markdown 样式美化 */
+.markdown-body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #24292f;
+}
+
+.markdown-body p {
+  margin: 0 0 10px 0;
+}
+
+.markdown-body p:last-child {
+  margin-bottom: 0;
+}
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4,
+.markdown-body h5,
+.markdown-body h6 {
+  margin: 12px 0 8px 0;
+  font-weight: 600;
+  line-height: 1.25;
+  color: #1f2328;
+}
+
+.markdown-body h1 {
+  font-size: 1.4em;
+  border-bottom: 1px solid #d0d7de;
+  padding-bottom: 6px;
+}
+
+.markdown-body h2 {
+  font-size: 1.25em;
+  border-bottom: 1px solid #d0d7de;
+  padding-bottom: 4px;
+}
+
+.markdown-body h3 {
+  font-size: 1.1em;
+}
+
+.markdown-body h4 {
+  font-size: 1em;
+}
+
+.markdown-body ul,
+.markdown-body ol {
+  margin: 8px 0;
+  padding-left: 20px;
+}
+
+.markdown-body li {
+  margin: 4px 0;
+}
+
+.markdown-body li > ul,
+.markdown-body li > ol {
+  margin: 4px 0;
+}
+
+.markdown-body code {
+  background-color: rgba(175, 184, 193, 0.2);
+  border-radius: 3px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 0.9em;
+  padding: 2px 6px;
+  color: #cf222e;
+}
+
+.markdown-body pre {
+  background-color: #f6f8fa;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.45;
+  overflow: auto;
+  padding: 12px;
+  margin: 8px 0;
+}
+
+.markdown-body pre code {
+  background-color: transparent;
+  border-radius: 0;
+  display: inline;
+  font-size: 100%;
+  line-height: inherit;
+  margin: 0;
+  overflow: visible;
+  padding: 0;
+  word-wrap: normal;
+  color: #24292f;
+}
+
+.markdown-body blockquote {
+  border-left: 4px solid #d0d7de;
+  color: #656d76;
+  margin: 8px 0;
+  padding: 0 12px;
+}
+
+.markdown-body blockquote > :first-child {
+  margin-top: 0;
+}
+
+.markdown-body blockquote > :last-child {
+  margin-bottom: 0;
+}
+
+.markdown-body table {
+  border-collapse: collapse;
+  border-spacing: 0;
+  display: block;
+  margin: 10px 0;
+  max-width: 100%;
+  overflow: auto;
+  width: max-content;
+}
+
+.markdown-body table th,
+.markdown-body table td {
+  border: 1px solid #d0d7de;
+  padding: 6px 12px;
+}
+
+.markdown-body table th {
+  background-color: #f6f8fa;
+  font-weight: 600;
+}
+
+.markdown-body table tr:nth-child(2n) {
+  background-color: #f6f8fa;
+}
+
+.markdown-body hr {
+  background-color: #d0d7de;
+  border: 0;
+  height: 1px;
+  margin: 16px 0;
+  padding: 0;
+}
+
+.markdown-body strong {
+  font-weight: 600;
+  color: #1f2328;
+}
+
+.markdown-body em {
+  font-style: italic;
+}
+
+.markdown-body a {
+  color: #0969da;
+  text-decoration: none;
+}
+
+.markdown-body a:hover {
+  text-decoration: underline;
+}
+
+.markdown-body img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+}
+
+/* 转录结果的特殊样式 */
+.result-content.transcript .markdown-body {
+  color: #0d47a1;
+}
+
+.result-content.transcript .markdown-body code {
+  background-color: rgba(33, 150, 243, 0.15);
+  color: #1565c0;
+}
+
+/* 总结结果的特殊样式 */
+.result-content.summary .markdown-body {
+  color: #4a148c;
+}
+
+.result-content.summary .markdown-body h1,
+.result-content.summary .markdown-body h2,
+.result-content.summary .markdown-body h3 {
+  color: #6a1b9a;
+}
+
+.result-content.summary .markdown-body code {
+  background-color: rgba(156, 39, 176, 0.15);
+  color: #7b1fa2;
 }
 
 /* 底部信息栏 */
