@@ -69,28 +69,77 @@ export const formatTime = seconds => {
 	return timeString;
 };
 
-// 保存 Blob 文件
+// 保存 Blob 文件，返回 Promise 包含下载路径
 export const saveBlob = (blob, filename) => {
-	const url = URL.createObjectURL(blob);
+	return new Promise((resolve, reject) => {
+		const url = URL.createObjectURL(blob);
 
-	if (chrome.downloads) {
-		chrome.downloads.download(
-			{
-				url: url,
-				filename: filename,
-				saveAs: false,
-			},
-			downloadId => {
-				if (chrome.runtime.lastError) {
-					console.error("下载失败:", chrome.runtime.lastError);
-					fallbackDownload(url, filename);
-				}
-				setTimeout(() => URL.revokeObjectURL(url), 1000);
-			},
-		);
-	} else {
-		fallbackDownload(url, filename);
-	}
+		if (chrome.downloads) {
+			chrome.downloads.download(
+				{
+					url: url,
+					filename: filename,
+					saveAs: false,
+				},
+				downloadId => {
+					if (chrome.runtime.lastError) {
+						console.error("下载失败:", chrome.runtime.lastError);
+						fallbackDownload(url, filename);
+						// 降级方案无法获取路径，返回文件名
+						resolve({ success: true, filename: filename, path: null });
+						setTimeout(() => URL.revokeObjectURL(url), 1000);
+					} else {
+						// 监听下载状态变化，获取完整路径
+						const onChanged = (delta) => {
+							if (delta.id === downloadId && delta.state && delta.state.current === "complete") {
+								chrome.downloads.onChanged.removeListener(onChanged);
+								chrome.downloads.search({ id: downloadId }, results => {
+									if (results && results.length > 0) {
+										const downloadItem = results[0];
+										resolve({
+											success: true,
+											filename: filename,
+											path: downloadItem.filename,
+											downloadId: downloadId,
+										});
+									} else {
+										resolve({ success: true, filename: filename, path: null });
+									}
+									setTimeout(() => URL.revokeObjectURL(url), 1000);
+								});
+							}
+						};
+						chrome.downloads.onChanged.addListener(onChanged);
+
+						// 超时处理（10秒后移除监听器）
+						setTimeout(() => {
+							chrome.downloads.onChanged.removeListener(onChanged);
+							// 尝试直接查询
+							chrome.downloads.search({ id: downloadId }, results => {
+								if (results && results.length > 0) {
+									const downloadItem = results[0];
+									resolve({
+										success: true,
+										filename: filename,
+										path: downloadItem.filename,
+										downloadId: downloadId,
+									});
+								} else {
+									resolve({ success: true, filename: filename, path: null });
+								}
+								setTimeout(() => URL.revokeObjectURL(url), 1000);
+							});
+						}, 3000);
+					}
+				},
+			);
+		} else {
+			fallbackDownload(url, filename);
+			// 降级方案无法获取路径，返回文件名
+			resolve({ success: true, filename: filename, path: null });
+			setTimeout(() => URL.revokeObjectURL(url), 1000);
+		}
+	});
 };
 
 // 降级下载方法

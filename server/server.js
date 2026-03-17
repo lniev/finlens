@@ -5,7 +5,7 @@ const path = require('path');
 const fs = require('fs');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 6001;
 
 // 启用 CORS
 app.use(cors());
@@ -29,11 +29,11 @@ const storage = multer.diskStorage({
     const now = new Date();
     const dateStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
     const dateDir = path.join(uploadsDir, dateStr);
-    
+
     if (!fs.existsSync(dateDir)) {
       fs.mkdirSync(dateDir, { recursive: true });
     }
-    
+
     cb(null, dateDir);
   },
   filename: function (req, file, cb) {
@@ -42,14 +42,14 @@ const storage = multer.diskStorage({
     const timestamp = Date.now();
     const ext = path.extname(customName) || path.extname(file.originalname);
     const baseName = path.basename(customName, ext);
-    
+
     // 文件名格式: 自定义名称_时间戳.扩展名
     const finalName = `${baseName}_${timestamp}${ext}`;
     cb(null, finalName);
   }
 });
 
-const upload = multer({ 
+const upload = multer({
   storage: storage,
   limits: {
     fileSize: 1024 * 1024 * 1024 // 限制 1GB
@@ -58,8 +58,8 @@ const upload = multer({
 
 // 健康检查接口
 app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
+  res.json({
+    status: 'ok',
     message: 'FinLens Server is running',
     timestamp: new Date().toISOString()
   });
@@ -69,14 +69,14 @@ app.get('/health', (req, res) => {
 app.post('/upload', upload.single('file'), (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ 
-        success: false, 
-        message: '没有上传文件' 
+      return res.status(400).json({
+        success: false,
+        message: '没有上传文件'
       });
     }
 
     const fileUrl = `/uploads/${req.file.destination.split('uploads/')[1]}/${req.file.filename}`;
-    
+
     res.json({
       success: true,
       message: '文件上传成功',
@@ -104,9 +104,9 @@ app.post('/upload', upload.single('file'), (req, res) => {
 app.post('/upload/multiple', upload.array('files', 10), (req, res) => {
   try {
     if (!req.files || req.files.length === 0) {
-      return res.status(400).json({ 
-        success: false, 
-        message: '没有上传文件' 
+      return res.status(400).json({
+        success: false,
+        message: '没有上传文件'
       });
     }
 
@@ -140,10 +140,10 @@ app.post('/upload/multiple', upload.array('files', 10), (req, res) => {
 app.get('/files', (req, res) => {
   try {
     const files = [];
-    
+
     // 遍历 uploads 目录
     const dates = fs.readdirSync(uploadsDir);
-    
+
     dates.forEach(date => {
       const datePath = path.join(uploadsDir, date);
       if (fs.statSync(datePath).isDirectory()) {
@@ -184,7 +184,7 @@ app.delete('/files/:date/:filename', (req, res) => {
   try {
     const { date, filename } = req.params;
     const filePath = path.join(uploadsDir, date, filename);
-    
+
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({
         success: false,
@@ -193,7 +193,7 @@ app.delete('/files/:date/:filename', (req, res) => {
     }
 
     fs.unlinkSync(filePath);
-    
+
     res.json({
       success: true,
       message: '文件删除成功'

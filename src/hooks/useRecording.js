@@ -48,7 +48,7 @@ export const useRecording = (settings, mediaFormats, serverConfig) => {
 		if (audioChunksRef.current.length > 0 && recordAudio) {
 			const audioType = mediaFormats.audioMimeType || "audio/webm;codecs=opus";
 			const audioBlob = new Blob(audioChunksRef.current, { type: audioType });
-			const audioFileName = customFileName 
+			const audioFileName = customFileName
 				? `${customFileName}_audio.${mediaFormats.audioExtension}`
 				: `audio_${Date.now()}.${mediaFormats.audioExtension}`;
 			files.audio = audioFileName;
@@ -71,14 +71,21 @@ export const useRecording = (settings, mediaFormats, serverConfig) => {
 		return files;
 	}, [settings, mediaFormats]);
 
-	// 下载文件到本地
-	const downloadFiles = useCallback((files) => {
+	// 下载文件到本地，返回 Promise 包含下载路径
+	const downloadFiles = useCallback(async (files) => {
+		const results = {
+			audio: null,
+			video: null,
+		};
+
 		if (files.audioBlob && files.audio) {
-			saveBlob(files.audioBlob, files.audio);
+			results.audio = await saveBlob(files.audioBlob, files.audio);
 		}
 		if (files.videoBlob && files.video) {
-			saveBlob(files.videoBlob, files.video);
+			results.video = await saveBlob(files.videoBlob, files.video);
 		}
+
+		return results;
 	}, []);
 
 	// 上传文件到服务器
@@ -442,8 +449,12 @@ export const useRecording = (settings, mediaFormats, serverConfig) => {
 		audioChunksRef,
 		showSaveDialog,
 		recordedFiles,
+		setRecordedFiles,
+		setShowSaveDialog,
 		startRecording,
 		stopRecording,
+		prepareRecordings,
+		downloadFiles,
 		handleSaveFiles,
 		cancelSave,
 		checkRecordingStatus,

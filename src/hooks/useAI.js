@@ -7,6 +7,80 @@ export const useAI = (aiConfig, audioChunksRef) => {
 	const [transcriptResult, setTranscriptResult] = useState("");
 	const [summaryResult, setSummaryResult] = useState("");
 
+	// 从文件路径读取并转录音频
+	const transcribeAudioFromFile = useCallback(async (filePath) => {
+		if (!aiConfig.enabled || !aiConfig.apiKey) {
+			alert("请先在设置中启用AI功能并配置API Key");
+			return null;
+		}
+
+		if (!filePath) {
+			alert("音频文件路径不存在");
+			return null;
+		}
+
+		setTranscribing(true);
+		setTranscriptResult("");
+
+		try {
+			// 使用 fetch 读取本地文件
+			const response = await fetch(`file:///${filePath}`);
+			if (!response.ok) {
+				throw new Error(`无法读取音频文件: ${response.status}`);
+			}
+
+			const audioBlob = await response.blob();
+
+			// 将音频文件转换为 Base64 Data URI
+			const dataUri = await blobToDataUri(audioBlob);
+
+			// 构建请求消息
+			const testMessage = [
+				{
+					role: "user",
+					content: [
+						{
+							type: "input_audio",
+							input_audio: {
+								data: dataUri,
+							},
+						},
+					],
+				},
+			];
+
+			// 发送请求到百炼 API
+			const apiResponse = await fetch(`${aiConfig.baseUrl}/chat/completions`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${aiConfig.apiKey}`,
+				},
+				body: JSON.stringify({
+					model: aiConfig.modelId || "qwen3-asr-flash",
+					messages: testMessage,
+				}),
+			});
+
+			if (!apiResponse.ok) {
+				const errorText = await apiResponse.text();
+				throw new Error(`API请求失败: ${apiResponse.status} - ${errorText}`);
+			}
+
+			const data = await apiResponse.json();
+			const transcript =
+				data.choices?.[0]?.message?.content || "无法识别音频内容";
+			setTranscriptResult(transcript);
+			return transcript;
+		} catch (error) {
+			console.error("转录失败:", error);
+			alert(`转录失败: ${error.message}`);
+			return null;
+		} finally {
+			setTranscribing(false);
+		}
+	}, [aiConfig]);
+
 	// 音频转文字（参考 quickTest 函数，使用 input_audio 格式）
 	const transcribeAudio = useCallback(async () => {
 		if (!aiConfig.enabled || !aiConfig.apiKey) {
@@ -144,7 +218,10 @@ export const useAI = (aiConfig, audioChunksRef) => {
 		summarizing,
 		transcriptResult,
 		summaryResult,
+		setTranscriptResult,
+		setSummaryResult,
 		transcribeAudio,
+		transcribeAudioFromFile,
 		summarizeContent,
 	};
 };
