@@ -4,6 +4,9 @@ GET http://localhost:6002/health
 
 ###
 
+### 健康检查
+GET http://8.136.26.168:6002/health
+###
 
 ### 1. 文件上传接口 - 上传音频文件
 POST http://localhost:6002/upload
@@ -18,7 +21,15 @@ Content-Type: audio/wav
 
 
 ###
+POST http://8.136.26.168:6002/asr/filetotext
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
 
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="file"; filename="test.webm"
+Content-Type: audio/webm
+
+< ./test.webm
+###
 
 ### 2. 文件上传并语音识别 - 一站式接口
 POST http://localhost:6002/asr/filetotext
@@ -52,13 +63,9 @@ POST http://localhost:6002/asr/url
 Content-Type: application/json
 
 {
-    "url": "https://dashscope.oss-cn-beijing.aliyuncs.com/samples/audio/sensevoice/rich_text_example_1.wav",
-    "model": "qwen3-asr-flash-filetrans",
-    "diarization_enabled": false,
-    "speaker_count": 1
+    "url": "http://8.136.26.168:8888/down/87nssN026TTS.webm",
+    "model": "fun-asr"
 }
-
-
 ###
 
 
