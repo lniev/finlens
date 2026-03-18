@@ -1,0 +1,74 @@
+### 健康检查
+GET http://localhost:6002/health
+
+
+###
+
+
+### 1. 文件上传接口 - 上传音频文件
+POST http://localhost:6002/upload
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="file"; filename="test.wav"
+Content-Type: audio/wav
+
+< ./uploads/2026-03-17/test01_audio_1773756575209.webm
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+
+###
+
+
+### 2. 文件上传并语音识别 - 一站式接口
+POST http://localhost:6002/asr/filetotext
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="file"; filename="test.webm"
+Content-Type: audio/webm
+
+< ./uploads/2026-03-17/test01_audio_1773756575209.webm
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="model"
+
+qwen3-asr-flash-filetrans
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="diarization_enabled"
+
+true
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="speaker_count"
+
+2
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+
+###
+
+
+### 3. 通过URL进行语音识别
+POST http://localhost:6002/asr/url
+Content-Type: application/json
+
+{
+    "url": "https://dashscope.oss-cn-beijing.aliyuncs.com/samples/audio/sensevoice/rich_text_example_1.wav",
+    "model": "qwen3-asr-flash-filetrans",
+    "diarization_enabled": false,
+    "speaker_count": 1
+}
+
+
+###
+
+
+### 4. 查询任务状态
+# 请将 your-task-id 替换为实际的 task id
+GET http://localhost:6002/asr/task/your-task-id
+
+
+###
+
+
+### 5. 获取上传的文件（文件访问服务）
+GET http://localhost:6002/uploads/2026-03-17/test01_audio_1773756575209.webm
