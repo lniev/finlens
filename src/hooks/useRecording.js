@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback } from "react";
 import { saveBlob } from "../utils/media";
 
-export const useRecording = (settings, mediaFormats, serverConfig) => {
+export const useRecording = (settings, mediaFormats) => {
 	const [isRecording, setIsRecording] = useState(false);
 	const [recordingTime, setRecordingTime] = useState(0);
 	const [status, setStatus] = useState("未录制");
@@ -18,7 +18,6 @@ export const useRecording = (settings, mediaFormats, serverConfig) => {
 	const videoChunksRef = useRef([]);
 	const audioStreamRef = useRef(null);
 	const videoStreamRef = useRef(null);
-	const fileNameRef = useRef("");
 
 	// 定时器
 	const startTimer = useCallback(() => {
@@ -88,67 +87,6 @@ export const useRecording = (settings, mediaFormats, serverConfig) => {
 		return results;
 	}, []);
 
-	// 上传文件到服务器
-	const uploadFiles = useCallback(async (files) => {
-		if (!serverConfig?.enabled || !serverConfig?.url) {
-			alert("请先配置服务器地址");
-			return { success: false, message: "服务器未配置" };
-		}
-
-		const uploadResults = [];
-		const uploadPromises = [];
-
-		// 上传音频
-		if (files.audioBlob && files.audio) {
-			const audioFormData = new FormData();
-			audioFormData.append("file", files.audioBlob, files.audio);
-			audioFormData.append("filename", files.audio);
-
-			const audioPromise = fetch(`${serverConfig.url}/upload`, {
-				method: "POST",
-				body: audioFormData,
-			})
-				.then(res => res.json())
-				.then(data => {
-					uploadResults.push({ type: "audio", ...data });
-					return data;
-				})
-				.catch(err => {
-					uploadResults.push({ type: "audio", success: false, error: err.message });
-					throw err;
-				});
-			uploadPromises.push(audioPromise);
-		}
-
-		// 上传视频
-		if (files.videoBlob && files.video) {
-			const videoFormData = new FormData();
-			videoFormData.append("file", files.videoBlob, files.video);
-			videoFormData.append("filename", files.video);
-
-			const videoPromise = fetch(`${serverConfig.url}/upload`, {
-				method: "POST",
-				body: videoFormData,
-			})
-				.then(res => res.json())
-				.then(data => {
-					uploadResults.push({ type: "video", ...data });
-					return data;
-				})
-				.catch(err => {
-					uploadResults.push({ type: "video", success: false, error: err.message });
-					throw err;
-				});
-			uploadPromises.push(videoPromise);
-		}
-
-		try {
-			await Promise.all(uploadPromises);
-			return { success: true, results: uploadResults };
-		} catch (error) {
-			return { success: false, message: error.message, results: uploadResults };
-		}
-	}, [serverConfig]);
 
 	// 开始录制
 	const startRecording = useCallback(async () => {
@@ -403,34 +341,11 @@ export const useRecording = (settings, mediaFormats, serverConfig) => {
 			// 下载到本地
 			downloadFiles(files);
 			setStatus("文件已下载到本地");
-		} else if (action === "upload") {
-			// 上传到服务器
-			setStatus("正在上传...");
-			const result = await uploadFiles(files);
-			if (result.success) {
-				setStatus("文件已上传到服务器");
-				alert("文件上传成功！");
-			} else {
-				setStatus("上传失败");
-				alert("上传失败: " + result.message);
-			}
-		} else if (action === "both") {
-			// 同时下载和上传
-			downloadFiles(files);
-			setStatus("正在上传...");
-			const result = await uploadFiles(files);
-			if (result.success) {
-				setStatus("文件已下载并上传");
-				alert("文件下载并上传成功！");
-			} else {
-				setStatus("下载完成，上传失败");
-				alert("下载完成，但上传失败: " + result.message);
-			}
 		}
 
 		// 关闭对话框
 		setShowSaveDialog(false);
-	}, [recordedFiles, prepareRecordings, downloadFiles, uploadFiles]);
+	}, [recordedFiles, prepareRecordings, downloadFiles]);
 
 	// 取消保存
 	const cancelSave = useCallback(() => {

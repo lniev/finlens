@@ -21,7 +21,7 @@ function App() {
 	const [settings, setSettings] = useState({
 		recordAudio: true,
 		recordVideo: true,
-		mutePage: true,
+		mutePage: false,
 		autoNaming: true,
 	});
 
@@ -41,11 +41,6 @@ function App() {
 		enabled: false,
 	});
 
-	// 服务器配置
-	const [serverConfig, setServerConfig] = useState({
-		url: "",
-		enabled: false,
-	});
 
 	// 保存对话框状态
 	const [fileName, setFileName] = useState("");
@@ -73,7 +68,7 @@ function App() {
 		downloadFiles,
 		cancelSave,
 		checkRecordingStatus,
-	} = useRecording(settings, mediaFormats, serverConfig);
+	} = useRecording(settings, mediaFormats);
 
 	// 使用 AI Hook
 	const {
@@ -102,7 +97,7 @@ function App() {
 	// 加载存储的设置
 	const loadStoredSettings = useCallback(() => {
 		if (typeof chrome !== "undefined" && chrome.storage) {
-			chrome.storage.local.get(["recordingSettings", "aiApiConfig", "serverConfig"], result => {
+			chrome.storage.local.get(["recordingSettings", "aiApiConfig"], result => {
 				const defaultSettings = {
 					recordAudio: true,
 					recordVideo: true,
@@ -113,9 +108,6 @@ function App() {
 
 				if (result.aiApiConfig) {
 					setAiConfig(result.aiApiConfig);
-				}
-				if (result.serverConfig) {
-					setServerConfig(result.serverConfig);
 				}
 			});
 		}
@@ -191,45 +183,6 @@ function App() {
 			chrome.storage.local.set({ aiApiConfig: newConfig });
 		}
 	}, [aiConfig]);
-
-	// 更新服务器配置
-	const handleServerConfigChange = useCallback(key => {
-		return e => {
-			const newConfig = { ...serverConfig, [key]: e.target.value };
-			setServerConfig(newConfig);
-			if (typeof chrome !== "undefined" && chrome.storage) {
-				chrome.storage.local.set({ serverConfig: newConfig });
-			}
-		};
-	}, [serverConfig]);
-
-	// 切换服务器启用状态
-	const toggleServerEnabled = useCallback(() => {
-		const newConfig = { ...serverConfig, enabled: !serverConfig.enabled };
-		setServerConfig(newConfig);
-		if (typeof chrome !== "undefined" && chrome.storage) {
-			chrome.storage.local.set({ serverConfig: newConfig });
-		}
-	}, [serverConfig]);
-
-	// 测试服务器连接
-	const testServerConnection = useCallback(async () => {
-		if (!serverConfig.url) {
-			alert("请先输入服务器地址");
-			return;
-		}
-		try {
-			const response = await fetch(`${serverConfig.url}/health`);
-			const data = await response.json();
-			if (data.status === "ok") {
-				alert("服务器连接成功！");
-			} else {
-				alert("服务器响应异常");
-			}
-		} catch (error) {
-			alert("连接失败: " + error.message);
-		}
-	}, [serverConfig.url]);
 
 	// 停止录制并显示保存对话框
 	const handleStopRecording = useCallback(async () => {

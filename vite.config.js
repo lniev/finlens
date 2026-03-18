@@ -1,7 +1,7 @@
-import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import { resolve } from 'path';
 import fs from 'fs';
+import { resolve } from 'path';
+import { defineConfig } from 'vite';
 
 export default defineConfig({
   root: './',
@@ -20,11 +20,6 @@ export default defineConfig({
     },
   },
   publicDir: 'public',
-  server: {
-    port: 5173,
-    host: '0.0.0.0',
-    open: '/popup.html',
-  },
   plugins: [
     react(),
     {
