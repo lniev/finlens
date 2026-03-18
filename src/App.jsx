@@ -1,16 +1,16 @@
-import { useEffect, useState, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import "./App.css";
 import { useAI } from "./hooks/useAI";
 import { useRecording } from "./hooks/useRecording";
+import { addRecording, deleteRecording, getAllRecordings, getRecording, updateRecording } from "./utils/db";
 import { detectMediaFormats, formatTime } from "./utils/media";
-import { addRecording, getAllRecordings, getRecording, updateRecording, deleteRecording } from "./utils/db";
 
 // 导入组件
-import Sidebar from "./components/common/Sidebar";
+import Sidebar from "./components/Sidebar";
 import SaveDialog from "./components/common/SaveDialog";
-import RecordPage from "./components/pages/RecordPage";
-import HistoryPage from "./components/pages/HistoryPage";
 import DetailPage from "./components/pages/DetailPage";
+import HistoryPage from "./components/pages/HistoryPage";
+import RecordPage from "./components/pages/RecordPage";
 import SettingsPage from "./components/pages/SettingsPage";
 
 function App() {
@@ -333,7 +333,7 @@ function App() {
 
 		// 直接使用 summarizeText 进行总结
 		const summary = await summarizeText(recording.transcript);
-		
+
 		// 如果总结成功，保存到数据库
 		if (summary) {
 			try {

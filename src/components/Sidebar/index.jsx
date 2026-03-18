@@ -1,3 +1,5 @@
+import "./Sidebar.css";
+
 const navItems = [
 	{ id: "record", label: "录制", icon: "🎥" },
 	{ id: "history", label: "历史记录", icon: "📁" },
@@ -7,7 +9,8 @@ const navItems = [
 function Sidebar({ currentPage, onPageChange }) {
 	return (
 		<aside className="sidebar">
-			<h1 className="app-title">🎬 直播录制</h1>
+			<h1 className="app-title">🎬
+			</h1>
 			<nav>
 				<ul className="nav-menu">
 					{navItems.map(item => (
@@ -17,7 +20,7 @@ function Sidebar({ currentPage, onPageChange }) {
 							onClick={() => onPageChange(item.id)}
 						>
 							<span className="nav-icon">{item.icon}</span>
-							<span>{item.label}</span>
+							{/*<span>{item.label}</span>*/}
 						</li>
 					))}
 				</ul>
