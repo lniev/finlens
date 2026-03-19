@@ -365,6 +365,8 @@ function App() {
 							summaryResult={summaryResult}
 							onTranscribe={handleTranscribeForRecording}
 							onSummarize={handleSummarizeForRecording}
+							setTranscriptResult={setTranscriptResult}
+							setSummaryResult={setSummaryResult}
 						/>
 					)}
 

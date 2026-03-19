@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import { updateRecording } from "../../utils/db";
 
 function DetailPage({
 	recording,
@@ -11,15 +12,56 @@ function DetailPage({
 	summaryResult,
 	onTranscribe,
 	onSummarize,
+	setTranscriptResult,
+	setSummaryResult,
 }) {
 	// 指定接口转文字相关状态
 	const [showCustomApiForm, setShowCustomApiForm] = useState(false);
-	const [customApiUrl, setCustomApiUrl] = useState("");
-	const [customFileParam, setCustomFileParam] = useState("file");
+	const [customApiUrl, setCustomApiUrl] = useState(recording.customApiConfig?.apiUrl || "");
+	const [customFileParam, setCustomFileParam] = useState(recording.customApiConfig?.fileParam || "file");
 	const [customApiLoading, setCustomApiLoading] = useState(false);
-	const [customApiResult, setCustomApiResult] = useState(null);
+	const [customApiResult, setCustomApiResult] = useState(recording.customApiResult || null);
 	const [customApiError, setCustomApiError] = useState(null);
-	const [requestType, setRequestType] = useState("multipart"); // "json" 或 "multipart"
+	const [requestType, setRequestType] = useState(recording.customApiConfig?.requestType || "multipart");
+	const [responseField, setResponseField] = useState(recording.customApiConfig?.responseField || "text");
+
+	// 折叠状态
+	const [isResultCollapsed, setIsResultCollapsed] = useState(true);
+
+	// 当 recording 变化时，恢复保存的配置和结果
+	useEffect(() => {
+		if (recording.customApiConfig) {
+			setCustomApiUrl(recording.customApiConfig.apiUrl || "");
+			setCustomFileParam(recording.customApiConfig.fileParam || "file");
+			setRequestType(recording.customApiConfig.requestType || "multipart");
+			setResponseField(recording.customApiConfig.responseField || "text");
+		}
+		if (recording.customApiResult) {
+			setCustomApiResult(recording.customApiResult);
+		}
+	}, [recording]);
+
+	// 保存配置到数据库
+	const saveCustomApiConfig = async (config) => {
+		try {
+			await updateRecording(recording.id, {
+				customApiConfig: config,
+			});
+		} catch (error) {
+			console.error("保存接口配置失败:", error);
+		}
+	};
+
+	// 保存结果到数据库
+	const saveCustomApiResult = async (result) => {
+		try {
+			await updateRecording(recording.id, {
+				customApiResult: result,
+			});
+		} catch (error) {
+			console.error("保存接口结果失败:", error);
+		}
+	};
 
 	// 处理指定接口转文字
 	const handleCustomApiTranscribe = async () => {
@@ -73,12 +115,72 @@ function DetailPage({
 
 			const data = await response.json();
 			setCustomApiResult(data);
+
+			// 保存结果到数据库
+			await saveCustomApiResult(data);
+
+			// 自动提取指定字段并设置到转录结果
+			if (responseField && data[responseField]) {
+				const extractedText = data[responseField];
+				setTranscriptResult(extractedText);
+				// 保存到 recording.transcript 字段，和 AI 转文字共用同一个字段
+				try {
+					await updateRecording(recording.id, {
+						transcript: extractedText,
+					});
+				} catch (error) {
+					console.error("保存转录结果失败:", error);
+				}
+			}
+
+			// 保存配置到数据库
+			await saveCustomApiConfig({
+				apiUrl: customApiUrl,
+				fileParam: customFileParam,
+				requestType,
+				responseField,
+			});
 		} catch (error) {
 			console.error("指定接口转文字失败:", error);
 			setCustomApiError(error.message || "请求失败");
 		} finally {
 			setCustomApiLoading(false);
 		}
+	};
+
+	// 使用指定接口的结果进行AI总结
+	const handleSummarizeFromCustomApi = async () => {
+		if (!customApiResult || !responseField || !customApiResult[responseField]) {
+			alert("请先完成指定接口转文字，并确保响应中包含指定字段");
+			return;
+		}
+		const text = customApiResult[responseField];
+		// 先设置转录结果
+		setTranscriptResult(text);
+		// 保存到 recording.transcript 字段
+		try {
+			await updateRecording(recording.id, {
+				transcript: text,
+			});
+		} catch (error) {
+			console.error("保存转录结果失败:", error);
+		}
+		// 然后调用父组件的总结方法
+		onSummarize({ ...recording, transcript: text });
+	};
+
+	// 处理配置变更
+	const handleConfigChange = (setter, key) => async (value) => {
+		setter(value);
+		// 延迟保存，避免频繁更新
+		setTimeout(async () => {
+			await saveCustomApiConfig({
+				apiUrl: key === 'apiUrl' ? value : customApiUrl,
+				fileParam: key === 'fileParam' ? value : customFileParam,
+				requestType: key === 'requestType' ? value : requestType,
+				responseField: key === 'responseField' ? value : responseField,
+			});
+		}, 500);
 	};
 
 	return (
@@ -169,14 +271,20 @@ function DetailPage({
 							type="text"
 							placeholder="请输入API地址，如 http://localhost:5000/asr/upload-and-transcribe"
 							value={customApiUrl}
-							onChange={(e) => setCustomApiUrl(e.target.value)}
+							onChange={(e) => {
+								setCustomApiUrl(e.target.value);
+								handleConfigChange(setCustomApiUrl, 'apiUrl')(e.target.value);
+							}}
 						/>
 					</div>
 					<div className="form-group">
 						<label>请求方式:</label>
 						<select
 							value={requestType}
-							onChange={(e) => setRequestType(e.target.value)}
+							onChange={(e) => {
+								setRequestType(e.target.value);
+								handleConfigChange(setRequestType, 'requestType')(e.target.value);
+							}}
 						>
 							<option value="multipart">multipart/form-data (上传文件)</option>
 							<option value="json">application/json (发送文件URL)</option>
@@ -188,28 +296,63 @@ function DetailPage({
 							type="text"
 							placeholder={requestType === "multipart" ? "默认为 file" : "默认为 file_url"}
 							value={customFileParam}
-							onChange={(e) => setCustomFileParam(e.target.value)}
+							onChange={(e) => {
+								setCustomFileParam(e.target.value);
+								handleConfigChange(setCustomFileParam, 'fileParam')(e.target.value);
+							}}
 						/>
 					</div>
-					<button
-						className="btn btn-primary"
-						onClick={handleCustomApiTranscribe}
-						disabled={customApiLoading}
-					>
-						{customApiLoading ? "⏳ 请求中..." : "✅ 确定"}
-					</button>
+					<div className="form-group">
+						<label>响应字段名:</label>
+						<input
+							type="text"
+							placeholder="默认为 text，用于提取转录内容"
+							value={responseField}
+							onChange={(e) => {
+								setResponseField(e.target.value);
+								handleConfigChange(setResponseField, 'responseField')(e.target.value);
+							}}
+						/>
+					</div>
+					<div className="custom-api-actions">
+						<button
+							className="btn btn-primary"
+							onClick={handleCustomApiTranscribe}
+							disabled={customApiLoading}
+						>
+							{customApiLoading ? "⏳ 请求中..." : "✅ 确定"}
+						</button>
+						{customApiResult && responseField && customApiResult[responseField] && (
+							<button
+								className="btn btn-summarize"
+								onClick={handleSummarizeFromCustomApi}
+								disabled={summarizing}
+							>
+								{summarizing ? "📊 总结中..." : "📋 用此结果AI总结"}
+							</button>
+						)}
+					</div>
 				</div>
 			)}
 
-			{/* 指定接口转文字结果 */}
+			{/* 指定接口转文字结果 - 可折叠 */}
 			{customApiResult && (
 				<div className="result-section">
-					<div className="result-header">
+					<div
+						className="result-header collapsible-header"
+						onClick={() => setIsResultCollapsed(!isResultCollapsed)}
+						style={{ cursor: "pointer" }}
+					>
 						<h4 className="result-title">🔧 指定接口转文字结果</h4>
+						<span className="collapse-icon">
+							{isResultCollapsed ? "▶" : "▼"}
+						</span>
 					</div>
-					<div className="result-content custom-api-result markdown-body">
-						<pre>{JSON.stringify(customApiResult, null, 2)}</pre>
-					</div>
+					{!isResultCollapsed && (
+						<div className="result-content custom-api-result markdown-body">
+							<pre>{JSON.stringify(customApiResult, null, 2)}</pre>
+						</div>
+					)}
 				</div>
 			)}
 

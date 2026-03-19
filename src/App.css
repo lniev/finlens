@@ -924,6 +924,34 @@
   box-shadow: 0 0 0 3px rgba(255, 152, 0, 0.1);
 }
 
+/* 指定接口转文字操作按钮区域 */
+.custom-api-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* 可折叠头部样式 */
+.collapsible-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 15px;
+  background: #f5f5f5;
+  border-radius: 6px;
+  transition: background 0.2s;
+}
+
+.collapsible-header:hover {
+  background: #e8e8e8;
+}
+
+.collapse-icon {
+  font-size: 12px;
+  color: #666;
+  margin-left: 10px;
+}
+
 /* 指定接口转文字结果样式 */
 .custom-api-result {
   background: #fff3e0;
