@@ -25,14 +25,23 @@ export default defineConfig({
     {
       name: 'copy-extension-files',
       closeBundle: () => {
-        // 复制 content.js, background.js 等必要文件
-        const filesToCopy = ['content.js', 'background.js'];
+        // 复制扩展所需的文件到 dist 目录
+        const filesToCopy = [
+          'content.js',
+          'content.js',
+          'background.js',
+          'offscreen.html',
+          'offscreen.js',
+          'manifest.json'
+        ];
         filesToCopy.forEach((file) => {
           const src = resolve(__dirname, file);
           const dest = resolve(__dirname, 'dist', file);
           if (fs.existsSync(src)) {
             fs.copyFileSync(src, dest);
             console.log(`Copied ${file} to dist/`);
+          } else {
+            console.warn(`Warning: ${file} not found`);
           }
         });
       },

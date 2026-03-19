@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { updateRecording } from "../../utils/db";
 
 function DetailPage({
@@ -377,7 +378,7 @@ function DetailPage({
 								<h4 className="result-title">🎤 音频转录</h4>
 							</div>
 							<div className="result-content transcript markdown-body">
-								<ReactMarkdown>{transcriptResult}</ReactMarkdown>
+								<ReactMarkdown remarkPlugins={[remarkGfm]}>{transcriptResult}</ReactMarkdown>
 							</div>
 						</div>
 					)}
@@ -388,7 +389,7 @@ function DetailPage({
 								<h4 className="result-title">📋 内容总结</h4>
 							</div>
 							<div className="result-content summary markdown-body">
-								<ReactMarkdown>{summaryResult}</ReactMarkdown>
+								<ReactMarkdown remarkPlugins={[remarkGfm]}>{summaryResult}</ReactMarkdown>
 							</div>
 						</div>
 					)}

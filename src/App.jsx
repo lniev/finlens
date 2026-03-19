@@ -64,8 +64,7 @@ function App() {
 		setShowSaveDialog,
 		startRecording,
 		stopRecording,
-		prepareRecordings,
-		downloadFiles,
+		handleSaveFiles,
 		cancelSave,
 		checkRecordingStatus,
 	} = useRecording(settings, mediaFormats);
@@ -199,20 +198,19 @@ function App() {
 		if (!recordedFiles) return;
 
 		const finalFileName = fileName || "recording";
-		const files = prepareRecordings(finalFileName);
 
-		// 下载文件并获取路径
-		const downloadResults = await downloadFiles(files);
+		// 使用新的 handleSaveFiles 函数下载文件，并获取下载路径
+		const downloadResult = await handleSaveFiles(finalFileName, "download");
 
 		// 保存记录到数据库
 		try {
 			const recording = {
 				fileName: finalFileName,
 				timestamp: Date.now(),
-				audioFile: files.audio,
-				videoFile: files.video,
-				audioPath: downloadResults.audio?.path || null,
-				videoPath: downloadResults.video?.path || null,
+				audioFile: recordedFiles.audio,
+				videoFile: recordedFiles.video,
+				audioPath: downloadResult.downloads?.audio?.path || null,
+				videoPath: downloadResult.downloads?.video?.path || null,
 				transcript: null,
 				summary: null,
 			};
@@ -224,7 +222,7 @@ function App() {
 
 		setShowSaveDialog(false);
 		setRecordedFiles(null);
-	}, [recordedFiles, fileName, prepareRecordings, downloadFiles, loadRecordings, setShowSaveDialog, setRecordedFiles]);
+	}, [recordedFiles, fileName, handleSaveFiles, loadRecordings, setShowSaveDialog, setRecordedFiles]);
 
 	// 查看记录详情
 	const viewRecordingDetail = useCallback(async (id) => {
