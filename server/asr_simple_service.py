@@ -1,13 +1,14 @@
-from http import HTTPStatus
-from dashscope.audio.asr import Transcription
-from urllib import request as urllib_request
-import dashscope
-import os
 import json
-from flask import Flask, request, jsonify, send_from_directory
+import os
+from datetime import datetime
+from http import HTTPStatus
+from urllib import request as urllib_request
+
+import dashscope
+from dashscope.audio.asr import Transcription
+from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
-from datetime import datetime
 
 app = Flask(__name__)
 CORS(app)
@@ -289,6 +290,7 @@ def upload_and_transcribe():
         "file_size": 102400
     }
     """
+    print('request', request.files)
     try:
         # 检查是否有文件
         if 'file' not in request.files:
@@ -346,6 +348,8 @@ def upload_and_transcribe():
         # 等待任务完成
         transcription_response = Transcription.wait(task=task_response.output.task_id)
 
+
+        print('transcription_response', transcription_response)
         if transcription_response.status_code != HTTPStatus.OK:
             return jsonify({
                 'success': False,

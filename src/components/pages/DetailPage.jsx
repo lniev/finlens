@@ -1,3 +1,4 @@
+import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 
 function DetailPage({
@@ -11,6 +12,75 @@ function DetailPage({
 	onTranscribe,
 	onSummarize,
 }) {
+	// 指定接口转文字相关状态
+	const [showCustomApiForm, setShowCustomApiForm] = useState(false);
+	const [customApiUrl, setCustomApiUrl] = useState("");
+	const [customFileParam, setCustomFileParam] = useState("file");
+	const [customApiLoading, setCustomApiLoading] = useState(false);
+	const [customApiResult, setCustomApiResult] = useState(null);
+	const [customApiError, setCustomApiError] = useState(null);
+	const [requestType, setRequestType] = useState("multipart"); // "json" 或 "multipart"
+
+	// 处理指定接口转文字
+	const handleCustomApiTranscribe = async () => {
+		if (!customApiUrl.trim()) {
+			alert("请输入API地址");
+			return;
+		}
+		if (!recording.audioPath) {
+			alert("该记录没有音频文件");
+			return;
+		}
+
+		setCustomApiLoading(true);
+		setCustomApiError(null);
+		setCustomApiResult(null);
+
+		try {
+			let response;
+
+			if (requestType === "multipart") {
+				// multipart/form-data 格式 - 用于 /asr/upload-and-transcribe 等接口
+				// 需要先读取文件内容
+				const fileResponse = await fetch(`file:///${recording.audioPath}`);
+				const fileBlob = await fileResponse.blob();
+				const fileName = recording.audioFile || "audio.wav";
+
+				const formData = new FormData();
+				formData.append(customFileParam, fileBlob, fileName);
+
+				response = await fetch(customApiUrl, {
+					method: "POST",
+					body: formData,
+				});
+			} else {
+				// JSON 格式 - 用于接收文件URL的接口
+				const fileUrl = `file:///${recording.audioPath}`;
+				response = await fetch(customApiUrl, {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+					},
+					body: JSON.stringify({
+						[customFileParam]: fileUrl,
+					}),
+				});
+			}
+
+			if (!response.ok) {
+				throw new Error(`请求失败: ${response.status} ${response.statusText}`);
+			}
+
+			const data = await response.json();
+			setCustomApiResult(data);
+		} catch (error) {
+			console.error("指定接口转文字失败:", error);
+			setCustomApiError(error.message || "请求失败");
+		} finally {
+			setCustomApiLoading(false);
+		}
+	};
+
 	return (
 		<div className="detail-page">
 			<button
@@ -77,6 +147,81 @@ function DetailPage({
 					>
 						{summarizing ? "📊 总结中..." : "📋 AI 总结"}
 					</button>
+				</div>
+			)}
+
+			{/* 指定接口转文字按钮 */}
+			<div className="ai-actions detail-ai-actions">
+				<button
+					className="btn btn-custom-api"
+					onClick={() => setShowCustomApiForm(!showCustomApiForm)}
+				>
+					{showCustomApiForm ? "🔼 收起指定接口" : "🔧 指定接口转文字"}
+				</button>
+			</div>
+
+			{/* 指定接口转文字表单 */}
+			{showCustomApiForm && (
+				<div className="custom-api-form">
+					<div className="form-group">
+						<label>API 地址:</label>
+						<input
+							type="text"
+							placeholder="请输入API地址，如 http://localhost:5000/asr/upload-and-transcribe"
+							value={customApiUrl}
+							onChange={(e) => setCustomApiUrl(e.target.value)}
+						/>
+					</div>
+					<div className="form-group">
+						<label>请求方式:</label>
+						<select
+							value={requestType}
+							onChange={(e) => setRequestType(e.target.value)}
+						>
+							<option value="multipart">multipart/form-data (上传文件)</option>
+							<option value="json">application/json (发送文件URL)</option>
+						</select>
+					</div>
+					<div className="form-group">
+						<label>文件参数名称:</label>
+						<input
+							type="text"
+							placeholder={requestType === "multipart" ? "默认为 file" : "默认为 file_url"}
+							value={customFileParam}
+							onChange={(e) => setCustomFileParam(e.target.value)}
+						/>
+					</div>
+					<button
+						className="btn btn-primary"
+						onClick={handleCustomApiTranscribe}
+						disabled={customApiLoading}
+					>
+						{customApiLoading ? "⏳ 请求中..." : "✅ 确定"}
+					</button>
+				</div>
+			)}
+
+			{/* 指定接口转文字结果 */}
+			{customApiResult && (
+				<div className="result-section">
+					<div className="result-header">
+						<h4 className="result-title">🔧 指定接口转文字结果</h4>
+					</div>
+					<div className="result-content custom-api-result markdown-body">
+						<pre>{JSON.stringify(customApiResult, null, 2)}</pre>
+					</div>
+				</div>
+			)}
+
+			{/* 指定接口转文字错误 */}
+			{customApiError && (
+				<div className="result-section">
+					<div className="result-header">
+						<h4 className="result-title">❌ 请求失败</h4>
+					</div>
+					<div className="result-content custom-api-error">
+						<p>{customApiError}</p>
+					</div>
 				</div>
 			)}
 

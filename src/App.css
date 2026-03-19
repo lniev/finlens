@@ -114,6 +114,24 @@
   background-color: #7b1fa2;
 }
 
+.btn-custom-api {
+  background-color: #FF9800;
+  color: white;
+}
+
+.btn-custom-api:hover:not(:disabled) {
+  background-color: #f57c00;
+}
+
+.btn-primary {
+  background-color: #4CAF50;
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: #45a049;
+}
+
 .btn-secondary {
   background-color: #757575;
   color: white;
@@ -851,4 +869,84 @@
 
 .detail-ai-actions {
   margin-bottom: 20px;
+}
+
+/* 指定接口转文字表单 */
+.custom-api-form {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+  border: 1px solid #e0e0e0;
+}
+
+.custom-api-form .form-group {
+  margin-bottom: 15px;
+}
+
+.custom-api-form .form-group label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 6px;
+}
+
+.custom-api-form .form-group input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 13px;
+  box-sizing: border-box;
+}
+
+.custom-api-form .form-group input:focus {
+  outline: none;
+  border-color: #FF9800;
+  box-shadow: 0 0 0 3px rgba(255, 152, 0, 0.1);
+}
+
+.custom-api-form .form-group select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 13px;
+  box-sizing: border-box;
+  background-color: white;
+  cursor: pointer;
+}
+
+.custom-api-form .form-group select:focus {
+  outline: none;
+  border-color: #FF9800;
+  box-shadow: 0 0 0 3px rgba(255, 152, 0, 0.1);
+}
+
+/* 指定接口转文字结果样式 */
+.custom-api-result {
+  background: #fff3e0;
+  border-left: 4px solid #FF9800;
+}
+
+.custom-api-result pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #e65100;
+}
+
+/* 指定接口转文字错误样式 */
+.custom-api-error {
+  background: #ffebee;
+  border-left: 4px solid #f44336;
+  color: #c62828;
+}
+
+.custom-api-error p {
+  margin: 0;
+  font-size: 13px;
 }
