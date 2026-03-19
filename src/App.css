@@ -348,6 +348,13 @@
   align-items: center;
   gap: 10px;
   margin-bottom: 10px;
+  justify-content: space-between;
+}
+
+.copy-btn {
+  padding: 4px 12px;
+  font-size: 12px;
+  margin-left: auto;
 }
 
 .result-title {

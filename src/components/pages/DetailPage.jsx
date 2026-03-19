@@ -184,6 +184,17 @@ function DetailPage({
 		}, 500);
 	};
 
+	// 复制到剪贴板
+	const handleCopyToClipboard = async (text, label) => {
+		try {
+			await navigator.clipboard.writeText(text);
+			// alert(`${label}已复制到剪贴板`);
+		} catch (error) {
+			console.error("复制失败:", error);
+			// alert("复制失败，请手动选择内容复制");
+		}
+	};
+
 	return (
 		<div className="detail-page">
 			<button
@@ -350,9 +361,17 @@ function DetailPage({
 						</span>
 					</div>
 					{!isResultCollapsed && (
-						<div className="result-content custom-api-result markdown-body">
-							<pre>{JSON.stringify(customApiResult, null, 2)}</pre>
-						</div>
+						<>
+							<button
+								className="btn copy-btn"
+								onClick={() => handleCopyToClipboard(JSON.stringify(customApiResult, null, 2), "指定接口转文字结果")}
+							>
+								📋复制
+							</button>
+							<div className="result-content custom-api-result markdown-body">
+								<pre>{JSON.stringify(customApiResult, null, 2)}</pre>
+							</div>
+						</>
 					)}
 				</div>
 			)}
@@ -376,6 +395,12 @@ function DetailPage({
 						<div className="result-section">
 							<div className="result-header">
 								<h4 className="result-title">🎤 音频转录</h4>
+								<button
+									className="btn copy-btn"
+									onClick={() => handleCopyToClipboard(transcriptResult, "音频转录")}
+								>
+									📋复制
+								</button>
 							</div>
 							<div className="result-content transcript markdown-body">
 								<ReactMarkdown remarkPlugins={[remarkGfm]}>{transcriptResult}</ReactMarkdown>
@@ -387,6 +412,12 @@ function DetailPage({
 						<div className="result-section">
 							<div className="result-header">
 								<h4 className="result-title">📋 内容总结</h4>
+								<button
+									className="btn copy-btn"
+									onClick={() => handleCopyToClipboard(summaryResult, "内容总结")}
+								>
+									📋复制
+								</button>
 							</div>
 							<div className="result-content summary markdown-body">
 								<ReactMarkdown remarkPlugins={[remarkGfm]}>{summaryResult}</ReactMarkdown>
